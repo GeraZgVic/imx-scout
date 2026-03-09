@@ -1,111 +1,447 @@
 # IMX Scout
 
-IMX Scout es una herramienta interna para investigacion de productos en Amazon US y eBay.
+IMX Scout es una API interna para monitoreo de productos en Amazon US y eBay. La aplicación recibe URLs o ASINs, ejecuta scraping con Playwright, guarda historial de precios en MySQL y genera alertas cuando detecta cambios entre ejecuciones.
 
-El estado actual de este repositorio corresponde a la v1: una herramienta CLI que lee URLs o ASINs desde un archivo local, ejecuta scraping con Playwright y exporta resultados en JSON y CSV.
+## Descripción
 
-## Estado del proyecto
+La versión actual del proyecto corresponde a `v2` y ya incluye:
 
-- `v1 actual`: CLI operativa basada en archivos locales.
-- `v2 objetivo`: evolucion hacia sistema interno con interfaz web, base de datos, historial de precios y alertas.
-
-La arquitectura objetivo de v2 esta documentada en [IMX_Scout_Arquitectura.md](./IMX_Scout_Arquitectura.md). Ese documento describe el sistema planeado, no el estado implementado hoy en este repositorio.
-
-## Alcance de v1
-
-La v1 resuelve el flujo base de investigacion:
-
-- Lectura de entradas desde `input/urls.json`
-- Clasificacion de URLs por plataforma
+- API REST con Express
+- Persistencia en MySQL con Prisma
 - Scraping de Amazon y eBay con Playwright
-- Normalizacion del resultado
-- Exportacion a `output/results.json` y `output/results.csv`
+- Historial de `RegistroPrecio`
+- Alertas de cambios de precio o disponibilidad
+- Estado en memoria del scraping en curso
 
-## Requisitos
+## Requisitos Previos
 
-- Node.js 18+
+- Node.js 18 o superior
 - npm
+- Docker y Docker Compose o Docker Engine
+- Navegador Chromium de Playwright
 
-## Instalacion
+Instalación de Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+## Configuración Local
+
+1. Clona el repositorio:
+
+```bash
+git clone <repo-url>
+cd imx-scout
+```
+
+2. Instala dependencias:
 
 ```bash
 npm install
 npx playwright install chromium
 ```
 
-## Uso
+3. Crea tu archivo `.env` a partir del ejemplo:
 
-1. Agrega las URLs o ASINs a revisar en `input/urls.json`:
+```bash
+cp .env.example .env
+```
+
+4. Levanta MySQL con Docker:
+
+```bash
+docker run --name imxscout-db \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=imxscout \
+  -e MYSQL_USER=imx \
+  -e MYSQL_PASSWORD=imxpass \
+  -p 3306:3306 \
+  -d mysql:8.0
+```
+
+5. Ajusta `DATABASE_URL` en `.env`:
+
+```env
+DATABASE_URL="mysql://imx:imxpass@localhost:3306/imxscout"
+```
+
+6. Ejecuta migraciones:
+
+```bash
+npx prisma migrate deploy
+```
+
+Si estás creando la base local desde cero y quieres trabajar en modo desarrollo:
+
+```bash
+npx prisma migrate dev
+```
+
+7. Inicia la API:
+
+```bash
+npm run dev
+```
+
+La API queda disponible en `http://localhost:3000`.
+
+## Estructura Del Proyecto
+
+```text
+imx-scout/
+├── prisma/
+│   ├── migrations/
+│   └── schema.prisma
+├── src/
+│   ├── api/
+│   │   └── routes/
+│   │       ├── alertas.js
+│   │       ├── productos.js
+│   │       └── scraping.js
+│   ├── lib/
+│   │   └── prisma.js
+│   ├── parsers/
+│   │   └── dataParser.js
+│   ├── processors/
+│   │   └── urlProcessor.js
+│   ├── scrapers/
+│   │   ├── amazonScraper.js
+│   │   └── ebayScraper.js
+│   ├── services/
+│   │   ├── alertaService.js
+│   │   └── scraperService.js
+│   ├── utils/
+│   │   ├── extractFirst.js
+│   │   └── logger.js
+│   └── server.js
+├── .env.example
+├── package.json
+└── README.md
+```
+
+## API
+
+### GET /api/productos
+
+Lista todos los productos registrados.
+
+Ejemplo de request:
+
+```bash
+curl http://localhost:3000/api/productos
+```
+
+Ejemplo de response:
 
 ```json
 {
-  "urls": [
-    "https://www.amazon.com/dp/...",
-    "https://www.ebay.com/itm/...",
-    "B0DSVVJXK5"
+  "items": [
+    {
+      "id": 1,
+      "url": "https://www.amazon.com/dp/B0DSVVJXK5",
+      "asin": "B0DSVVJXK5",
+      "plataforma": "amazon",
+      "nombre": "Producto de ejemplo",
+      "activo": true,
+      "createdAt": "2026-03-09T23:40:00.000Z",
+      "updatedAt": "2026-03-09T23:40:00.000Z"
+    }
   ]
 }
 ```
 
-2. Ejecuta el sistema:
+### POST /api/productos
+
+Crea un producto a partir de `url` o `asin`.
+
+Ejemplo con ASIN:
 
 ```bash
-npm start
+curl -X POST http://localhost:3000/api/productos \
+  -H "Content-Type: application/json" \
+  -d '{"asin":"B0DSVVJXK5"}'
 ```
 
-3. Los resultados se guardan en `output/`:
+Ejemplo con URL:
 
-- `results.json`
-- `results.csv`
-
-## Estructura actual
-
-```text
-imx-scout/
-|-- src/
-|   |-- index.js
-|   |-- scrapers/
-|   |   |-- amazonScraper.js
-|   |   `-- ebayScraper.js
-|   |-- processors/
-|   |   `-- urlProcessor.js
-|   |-- parsers/
-|   |   `-- dataParser.js
-|   |-- exporters/
-|   |   `-- resultExporter.js
-|   `-- utils/
-|       `-- logger.js
-|-- input/
-|   `-- urls.json
-`-- output/
-    |-- results.json
-    `-- results.csv
+```bash
+curl -X POST http://localhost:3000/api/productos \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.ebay.com/itm/1234567890"}'
 ```
 
-## Formato de salida
+Ejemplo de response:
 
-Cada resultado tiene la siguiente estructura:
+```json
+{
+  "id": 2,
+  "url": "https://www.amazon.com/dp/B0DSVVJXK5",
+  "asin": "B0DSVVJXK5",
+  "plataforma": "amazon",
+  "nombre": null,
+  "activo": true,
+  "createdAt": "2026-03-09T23:42:00.000Z",
+  "updatedAt": "2026-03-09T23:42:00.000Z"
+}
+```
 
-| Campo | Descripcion |
-|---|---|
-| `url` | URL original del producto |
-| `plataforma` | `amazon` o `ebay` |
-| `nombre` | Nombre del producto |
-| `precio` | Precio del producto |
-| `envio` | Informacion de envio |
-| `tiempo_entrega` | Tiempo estimado de entrega |
-| `timestamp` | Fecha y hora del scraping en ISO 8601 |
-| `status` | `ok` o `error` |
-| `error_mensaje` | Descripcion del error si aplica |
+Errores esperados:
 
-## Evolucion planeada
+- `400` si falta `url` y `asin`, o si la entrada no es válida
+- `409` si la URL ya existe en la base
 
-La v2 busca conservar la logica de scraping de v1 y moverla a una arquitectura mas completa:
+### DELETE /api/productos/:id
 
-- Interfaz web para ingreso manual y carga de archivos
-- API REST para ejecucion y consulta
-- Base de datos persistente con historial
-- Alertas por cambios de precio o disponibilidad
-- Despliegue con Docker y proxy reverso
+Elimina un producto y sus relaciones en cascada.
 
-La idea es que este repositorio deje trazabilidad clara entre la base CLI estable y la siguiente etapa del sistema.
+Ejemplo de request:
+
+```bash
+curl -X DELETE http://localhost:3000/api/productos/2 -i
+```
+
+Respuesta esperada:
+
+- `204 No Content`
+
+### GET /api/productos/:id/historial
+
+Devuelve el historial de `RegistroPrecio` de un producto.
+
+Ejemplo de request:
+
+```bash
+curl http://localhost:3000/api/productos/1/historial
+```
+
+Ejemplo de response:
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "productoId": 1,
+      "precio": "$19.99",
+      "envio": "FREE delivery",
+      "tiempo_entrega": "Wednesday, March 12",
+      "status": "ok",
+      "error_mensaje": null,
+      "timestamp": "2026-03-09T23:45:00.000Z"
+    }
+  ]
+}
+```
+
+### GET /api/alertas
+
+Lista las alertas no leídas.
+
+Ejemplo de request:
+
+```bash
+curl http://localhost:3000/api/alertas
+```
+
+Ejemplo de response:
+
+```json
+{
+  "items": [
+    {
+      "id": 3,
+      "productoId": 1,
+      "tipo": "precio_cambio",
+      "valor_anterior": "$19.99",
+      "valor_nuevo": "$17.99",
+      "leida": false,
+      "timestamp": "2026-03-10T00:10:00.000Z",
+      "producto": {
+        "id": 1,
+        "url": "https://www.amazon.com/dp/B0DSVVJXK5",
+        "asin": "B0DSVVJXK5",
+        "plataforma": "amazon",
+        "nombre": "Producto de ejemplo"
+      }
+    }
+  ]
+}
+```
+
+### PATCH /api/alertas/:id/leida
+
+Marca una alerta como leída.
+
+Ejemplo de request:
+
+```bash
+curl -X PATCH http://localhost:3000/api/alertas/3/leida
+```
+
+Ejemplo de response:
+
+```json
+{
+  "id": 3,
+  "productoId": 1,
+  "tipo": "precio_cambio",
+  "valor_anterior": "$19.99",
+  "valor_nuevo": "$17.99",
+  "leida": true,
+  "timestamp": "2026-03-10T00:10:00.000Z"
+}
+```
+
+### GET /api/scraping/estado
+
+Devuelve el estado actual del scraping.
+
+Ejemplo de request:
+
+```bash
+curl http://localhost:3000/api/scraping/estado
+```
+
+Ejemplo de response:
+
+```json
+{
+  "activo": false,
+  "inicio": null,
+  "total": 0,
+  "procesados": 0,
+  "errores": 0
+}
+```
+
+### POST /api/scraping/ejecutar
+
+Ejecuta scraping para una lista de URLs o ASINs.
+
+Ejemplo de request:
+
+```bash
+curl -X POST http://localhost:3000/api/scraping/ejecutar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "entries": [
+      "B0DSVVJXK5",
+      "https://www.ebay.com/itm/1234567890"
+    ]
+  }'
+```
+
+Ejemplo de response:
+
+```json
+{
+  "total": 1,
+  "exitosos": 1,
+  "errores": 0,
+  "resultados": [
+    {
+      "url": "https://www.amazon.com/dp/B0DSVVJXK5",
+      "plataforma": "amazon",
+      "nombre": "Producto de ejemplo",
+      "precio": "$19.99",
+      "envio": "FREE delivery",
+      "tiempo_entrega": "Wednesday, March 12",
+      "timestamp": "2026-03-09T23:50:00.000Z",
+      "status": "ok",
+      "error_mensaje": null
+    }
+  ]
+}
+```
+
+Errores esperados:
+
+- `400` si `entries` no existe o está vacío
+- `400` si ya hay un scraping en curso
+- `400` si se excede `MAX_URLS_PER_REQUEST`
+- `500` si ocurre un error inesperado del servidor
+
+## Cómo Correr Scraping Desde curl
+
+1. Verifica el estado actual:
+
+```bash
+curl http://localhost:3000/api/scraping/estado
+```
+
+2. Lanza una ejecución:
+
+```bash
+curl -X POST http://localhost:3000/api/scraping/ejecutar \
+  -H "Content-Type: application/json" \
+  -d '{"entries":["B0DSVVJXK5"]}'
+```
+
+3. Consulta productos guardados:
+
+```bash
+curl http://localhost:3000/api/productos
+```
+
+4. Consulta el historial del producto:
+
+```bash
+curl http://localhost:3000/api/productos/1/historial
+```
+
+5. Consulta alertas no leídas:
+
+```bash
+curl http://localhost:3000/api/alertas
+```
+
+## Variables De Entorno
+
+Archivo base: `.env.example`
+
+```env
+PORT=3000
+NODE_ENV=development
+LOG_LEVEL=info
+DATABASE_URL="mysql://user:password@localhost:3306/imxscout"
+MAX_CONCURRENT_SCRAPERS=5
+MAX_URLS_PER_REQUEST=100
+SCRAPER_TIMEOUT_MS=30000
+```
+
+Explicación:
+
+- `PORT`: puerto HTTP donde se levanta Express
+- `NODE_ENV`: modo de ejecución, normalmente `development` o `production`
+- `LOG_LEVEL`: nivel del logger `pino`
+- `DATABASE_URL`: cadena de conexión MySQL usada por Prisma
+- `MAX_CONCURRENT_SCRAPERS`: número máximo de scrapers corriendo en paralelo
+- `MAX_URLS_PER_REQUEST`: límite de entradas por ejecución
+- `SCRAPER_TIMEOUT_MS`: timeout por URL en milisegundos
+
+## Comandos Útiles
+
+Instalar dependencias:
+
+```bash
+npm install
+```
+
+Iniciar en desarrollo:
+
+```bash
+npm run dev
+```
+
+Ejecutar migraciones:
+
+```bash
+npx prisma migrate deploy
+```
+
+Abrir Prisma Studio:
+
+```bash
+npx prisma studio
+```

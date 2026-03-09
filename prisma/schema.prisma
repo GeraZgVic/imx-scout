@@ -1,0 +1,77 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Plataforma {
+  amazon
+  ebay
+}
+
+enum ScrapingStatus {
+  ok
+  error
+}
+
+enum TipoAlerta {
+  precio_cambio
+  disponibilidad_cambio
+}
+
+// ─── Modelos ──────────────────────────────────────────────────────────────────
+
+/// Producto monitoreado. Cada entrada es única por URL.
+model Producto {
+  id         Int        @id @default(autoincrement())
+  url        String     @unique @db.VarChar(512)
+  asin       String?    @db.VarChar(10)
+  plataforma Plataforma
+  nombre     String?    @db.VarChar(512)
+  activo     Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  registros  RegistroPrecio[]
+  alertas    Alerta[]
+}
+
+/// Registro de scraping por producto. Representa el historial de precios.
+model RegistroPrecio {
+  id             Int            @id @default(autoincrement())
+  productoId     Int
+  precio         String?        @db.VarChar(64)
+  envio          String?        @db.VarChar(256)
+  tiempo_entrega String?        @db.VarChar(256)
+  status         ScrapingStatus
+  error_mensaje  String?        @db.VarChar(512)
+  timestamp      DateTime       @default(now())
+
+  producto       Producto       @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  // Índice compuesto para consultas de historial ordenado por tiempo
+  @@index([productoId, timestamp])
+}
+
+/// Alerta generada cuando se detecta un cambio entre dos registros consecutivos.
+model Alerta {
+  id              Int        @id @default(autoincrement())
+  productoId      Int
+  tipo            TipoAlerta
+  valor_anterior  String     @db.VarChar(256)
+  valor_nuevo     String     @db.VarChar(256)
+  leida           Boolean    @default(false)
+  timestamp       DateTime   @default(now())
+
+  producto        Producto   @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId])
+  @@index([leida])
+}

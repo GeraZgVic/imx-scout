@@ -1,28 +1,23 @@
 /**
- * logger.js
- * Utilidad simple para registrar eventos del sistema en consola.
+ * utils/logger.js
+ * Logger estructurado con pino.
+ *
+ * En desarrollo: salida legible con pino-pretty.
+ * En producción: JSON puro, optimizado para docker logs.
+ *
+ * Uso:
+ *   logger.info({ url, plataforma, duracion }, "scrape_success")
+ *   logger.warn("mensaje de advertencia")
+ *   logger.error({ err }, "scrape_error")
  */
 
-const LEVELS = {
-  INFO: "INFO",
-  WARN: "WARN",
-  ERROR: "ERROR",
-};
+const pino = require("pino");
 
-function timestamp() {
-  return new Date().toISOString();
-}
+const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport: process.env.NODE_ENV !== "production"
+    ? { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss" } }
+    : undefined,
+});
 
-function info(message) {
-  console.log(`[${timestamp()}] [${LEVELS.INFO}] ${message}`);
-}
-
-function warn(message) {
-  console.warn(`[${timestamp()}] [${LEVELS.WARN}] ${message}`);
-}
-
-function error(message) {
-  console.error(`[${timestamp()}] [${LEVELS.ERROR}] ${message}`);
-}
-
-module.exports = { info, warn, error };
+module.exports = logger;
