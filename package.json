@@ -1,0 +1,17 @@
+{
+  "name": "imx-scout",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Herramienta interna para investigación de productos en Amazon y eBay",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
