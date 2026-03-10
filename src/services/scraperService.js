@@ -126,6 +126,7 @@ async function guardarRegistro(productoId, resultado) {
       precio:         resultado.precio         ?? null,
       envio:          resultado.envio           ?? null,
       tiempo_entrega: resultado.tiempo_entrega  ?? null,
+      destino_consultado: resultado.destino_consultado ?? null,
       status:         resultado.status,
       error_mensaje:  resultado.error_mensaje   ?? null,
       timestamp:      new Date(resultado.timestamp),

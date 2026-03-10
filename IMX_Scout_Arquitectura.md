@@ -4,7 +4,7 @@
 
 IMX Scout v2 convierte la herramienta de línea de comandos de v1 en un sistema interno completo con interfaz web, base de datos persistente e historial de precios.
 
-El equipo puede ingresar URLs y ASINs directamente desde el navegador, ejecutar scraping en tiempo real, ver el historial de precios por producto y recibir notificaciones de cambios — sin editar archivos manualmente.
+El equipo puede ingresar URLs y ASINs directamente desde el navegador, ejecutar scraping bajo demanda, ver el historial por producto y revisar alertas de cambios en precio o tiempo de entrega sin editar archivos manualmente.
 
 ---
 
@@ -12,12 +12,12 @@ El equipo puede ingresar URLs y ASINs directamente desde el navegador, ejecutar 
 
 | Aspecto | v1 | v2 |
 |---|---|---|
-| Entrada de datos | Edición manual de `input/urls.json` | Interfaz web (pegado manual o carga de CSV/Excel) |
+| Entrada de datos | Edición manual de `input/urls.json` | Interfaz web con pegado manual de URLs y ASINs |
 | Ejecución | `npm start` en terminal | Botón en la UI |
-| Resultados | Archivos `results.json` / `results.csv` | Base de datos + visualización en pantalla + exportación |
+| Resultados | Archivos `results.json` / `results.csv` | Base de datos + visualización en pantalla |
 | Persistencia | Ninguna | MySQL — historial completo de cada producto |
-| Notificaciones | Ninguna | Alertas en UI cuando cambia precio o disponibilidad |
-| Despliegue | Script local | Contenedor Docker + Traefik |
+| Notificaciones | Ninguna | Alertas en UI cuando cambia precio o el tiempo de tramitación/entrega |
+| Despliegue | Script local | Operación local validada; despliegue a servidor queda como siguiente etapa |
 
 Los scrapers de v1 (`amazonScraper.js`, `ebayScraper.js`), el procesador de URLs y el parser de datos se reutilizan sin modificaciones estructurales. La lógica de scraping ya está validada y probada.
 
@@ -32,8 +32,8 @@ Los scrapers de v1 (`amazonScraper.js`, `ebayScraper.js`), el procesador de URLs
 | Base de datos | MySQL | Ya operado en producción con Docker |
 | ORM | Prisma | Tipado, migraciones y queries simples |
 | Scraping | Playwright | Reutilizado de v1 sin cambios |
-| Contenedor | Docker + docker-compose | Coherente con infraestructura existente |
-| Proxy | Traefik | Mismo reverse proxy del servidor |
+| Contenedor | Docker + docker-compose | Planeado para la etapa de despliegue a servidor |
+| Proxy | Traefik | Planeado para operación en servidor |
 
 ---
 
@@ -41,27 +41,24 @@ Los scrapers de v1 (`amazonScraper.js`, `ebayScraper.js`), el procesador de URLs
 
 ```
 ┌─────────────────────────────────────────┐
-│              Traefik                    │
-│    imxscout.dominio.com → :3000         │
+│            Navegador local              │
+│       Vite (:5173) en desarrollo        │
+└────────────────┬────────────────────────┘
+                 │  /api/*
+┌────────────────▼────────────────────────┐
+│         Express.js (:3000)              │
+│  ├── API REST                           │
+│  ├── ScraperService (Playwright)        │
+│  └── Sirve build React en producción    │
 └────────────────┬────────────────────────┘
                  │
 ┌────────────────▼────────────────────────┐
-│         Contenedor: app                 │
-│                                         │
-│  Express.js (:3000)                     │
-│  ├── /api/*     → API REST              │
-│  └── /*         → React (build Vite)    │
-│                                         │
-│  ScraperService (Playwright interno)    │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│         Contenedor: db                  │
-│         MySQL 8                         │
+│               MySQL 8                   │
+│         Prisma + historial              │
 └─────────────────────────────────────────┘
 ```
 
-Un solo contenedor de aplicación sirve tanto la API como el frontend estático. La base de datos corre en un contenedor separado, igual que el patrón ya usado en el servidor.
+Hoy la operación validada es local: Vite corre separado en desarrollo y proxea `/api/*` hacia Express. El servicio de Express puede servir el build estático de React en producción local. Docker y Traefik siguen siendo parte del plan de despliegue posterior.
 
 ---
 
@@ -69,10 +66,9 @@ Un solo contenedor de aplicación sirve tanto la API como el frontend estático.
 
 ```
 imx-scout/
-├── docker-compose.yml
-├── Dockerfile
 ├── .env.example
 ├── package.json
+├── vite.config.js
 ├── prisma/
 │   └── schema.prisma           ← Modelos de base de datos
 └── src/
@@ -96,14 +92,10 @@ imx-scout/
     │   └── logger.js
     └── client/                 ← Proyecto React (Vite)
         ├── index.html
-        ├── vite.config.js
         └── src/
             ├── main.jsx
             ├── App.jsx
-            └── pages/
-                ├── Dashboard.jsx
-                ├── Productos.jsx
-                └── Alertas.jsx
+            └── styles.css
 ```
 
 ---
@@ -134,8 +126,9 @@ Cada vez que se ejecuta un scraping exitoso se guarda un registro. Este es el hi
 | `id` | Int (PK) | Identificador interno |
 | `productoId` | Int (FK) | Referencia al producto |
 | `precio` | String (nullable) | Precio tal como aparece en la página |
-| `envio` | String (nullable) | Información de envío hacia ZIP 78041 |
-| `tiempo_entrega` | String (nullable) | Tiempo estimado de entrega |
+| `envio` | String (nullable) | Información de envío hacia Laredo, TX 78041 |
+| `tiempo_entrega` | String (nullable) | Promesa de entrega/tramitación reportada por la plataforma |
+| `destino_consultado` | String (nullable) | Etiqueta del destino usado para consultar logística |
 | `status` | Enum `ok / error` | Resultado del scraping |
 | `error_mensaje` | String (nullable) | Descripción del error si aplica |
 | `timestamp` | DateTime | Fecha y hora del registro |
@@ -148,7 +141,7 @@ Registra cambios detectados entre el último scraping y el anterior.
 |---|---|---|
 | `id` | Int (PK) | Identificador interno |
 | `productoId` | Int (FK) | Referencia al producto |
-| `tipo` | Enum | `precio_cambio / disponibilidad_cambio` |
+| `tipo` | Enum | `precio_cambio / tiempo_entrega_cambio` |
 | `valor_anterior` | String | Valor antes del cambio |
 | `valor_nuevo` | String | Valor después del cambio |
 | `leida` | Boolean | Si el equipo ya vio la alerta |
@@ -162,7 +155,7 @@ Registra cambios detectados entre el último scraping y el anterior.
 Usuario en la UI
        │
        ▼
-Ingresa URLs/ASINs (pegado manual o carga CSV/Excel)
+Ingresa URLs/ASINs manualmente
        │
        ▼
 POST /api/scraping/ejecutar
@@ -184,12 +177,12 @@ scraperService.js (orquestador — lógica de v1)
        ▼
 alertaService.js
   └── Compara nuevo registro con el anterior por producto
-      └── Si hay cambio de precio o envío → crea Alerta
+  └── Si hay cambio de precio o tiempo de entrega → crea Alerta
        │
        ▼
 Respuesta a la UI con resultados
-  └── La UI muestra resultados en tiempo real
-      y badge con alertas nuevas
+  └── La UI muestra resultados de la corrida,
+      historial por producto y badge con alertas nuevas
 ```
 
 ---
@@ -227,20 +220,20 @@ La UI tiene tres vistas principales:
 
 ### Dashboard
 Vista principal. Muestra:
-- Input para ingresar URLs/ASINs manualmente o cargar archivo CSV/Excel
-- Botón para ejecutar scraping
-- Tabla con los resultados de la última ejecución
-- Badge con contador de alertas no leídas
+- Estado general del sistema
+- Input manual para URLs/ASINs
+- Resumen de la última corrida
+- Alertas recientes y acceso rápido al inventario
 
 ### Productos
 Lista de todos los productos que el equipo ha procesado alguna vez. Permite:
-- Ver el historial de precios de cada producto como tabla
+- Ver el historial de cada producto en un drawer lateral
 - Eliminar un producto del seguimiento
 
 ### Alertas
 Lista de cambios detectados en las últimas ejecuciones:
 - Cambios de precio
-- Cambios en disponibilidad o envío
+- Cambios en tiempo de tramitación/entrega
 - Permite marcar alertas como leídas
 
 ---
@@ -253,8 +246,9 @@ Por cada producto procesado exitosamente:
 
 1. Consulta el registro anterior en `RegistroPrecio`
 2. Compara el precio actual con el anterior
-3. Compara la información de envío actual con la anterior
-4. Si detecta un cambio, crea un registro en `Alerta`
+3. Compara el tiempo de tramitación/entrega actual con el anterior
+4. Ignora fragmentos volátiles como countdowns de compra cuando no cambian la promesa logística real
+5. Si detecta un cambio real, crea un registro en `Alerta`
 
 Las alertas son visibles en la UI en la próxima carga de página. No hay notificaciones push en v2 — las alertas se consultan manualmente desde la sección Alertas.
 
@@ -263,20 +257,10 @@ Las alertas son visibles en la UI en la próxima carga de página. No hay notifi
 ## Entrada de Datos — Formatos Soportados
 
 ### Pegado manual en UI
-El equipo escribe o pega URLs y ASINs directamente en un campo de texto, uno por línea. El mismo formato que `input/urls.json` en v1, pero sin editar archivos.
+El equipo escribe o pega URLs y ASINs directamente en un campo de texto, uno por línea. El procesamiento pasa por `urlProcessor.js` y la validación/clasificación es equivalente a v1.
 
-### Carga de archivo CSV
-```
-url_o_asin
-B0DSVVJXK5
-https://www.amazon.com/dp/B08N5WRWNW
-https://www.ebay.com/itm/325528865399
-```
-
-### Carga de archivo Excel (.xlsx)
-Una columna con encabezado `url_o_asin`. El sistema lee la primera hoja.
-
-En todos los casos el procesamiento pasa por `urlProcessor.js` — la validación y clasificación es idéntica a v1.
+### Carga masiva
+La importación por CSV/Excel sigue contemplada, pero no forma parte del flujo cerrado actual de v2. Se considera siguiente etapa funcional.
 
 ---
 
@@ -308,6 +292,8 @@ En desarrollo no se necesita Traefik — el acceso es directo a `localhost:5173`
 ---
 
 ### Producción (servidor propio)
+
+Esta sección describe la arquitectura objetivo para despliegue. No forma parte del cierre funcional actual de v2 local.
 
 #### Contexto del servidor
 
@@ -476,7 +462,7 @@ Esta sección documenta las decisiones de diseño no obvias y el razonamiento de
 |---|---|---|---|
 | Concurrencia de scrapers | `p-limit` | Queue + Worker (BullMQ + Redis) | Para 20–50 URLs, p-limit resuelve el problema sin agregar Redis ni un contenedor extra. Queue entra en v3 si el volumen escala a 500+ productos. |
 | Precio en DB | `STRING` | `DECIMAL` | Amazon y eBay devuelven formatos inconsistentes. Guardar el texto original evita bugs de parsing. Se puede agregar `precio_normalizado DECIMAL` en una migración posterior. |
-| Autenticación | Traefik Basic Auth | JWT en código | El sistema es interno. Proteger a nivel de infraestructura es más simple, centralizado y consistente con los otros sistemas del servidor. Cero código adicional. |
+| Autenticación en servidor | Traefik Basic Auth | JWT en código | Decisión reservada para la etapa de despliegue. En servidor, proteger a nivel de infraestructura sería más simple y consistente con otros sistemas internos. |
 | Timeout por URL | `Promise.race()` 30s | Sin timeout | Amazon puede colgar indefinidamente. Sin timeout, un solo scraper puede bloquear toda la ejecución. |
 | Estado del scraping | Variable en memoria | Tabla `ScrapeJob` | Una sola instancia del contenedor hace suficiente una variable en memoria. `ScrapeJob` entra en v3 si se necesita persistencia entre reinicios. |
 | Logs | `pino` | `console.log` | Logs estructurados (JSON) permiten filtrar por `url`, `plataforma`, `duration` directamente en `docker logs`. |
@@ -491,9 +477,30 @@ Los mismos que v1, extendidos para v2:
 - **Reutilización** — los scrapers, parser y procesador de URLs de v1 no se reescriben
 - **Confiabilidad** — los errores por URL se capturan sin detener el proceso completo
 - **Modularidad** — agregar soporte para una nueva plataforma sigue requiriendo solo un nuevo scraper y una entrada en `ALLOWED_DOMAINS`
-- **Coherencia con la infraestructura** — MySQL, Docker y Traefik siguen el patrón ya establecido en el servidor
+- **Coherencia con la infraestructura** — la operación local y el futuro despliegue a servidor se diseñan sin romper el patrón ya establecido
 
 ---
+
+## Estado por Etapa
+
+### v2 local — Cerrando alcance actual
+- Interfaz web para operación local
+- Ingreso manual de URLs y ASINs
+- Base de datos MySQL con Prisma
+- Historial de precios por producto con índice `(productoId, timestamp)`
+- Alertas de cambios en UI para precio y tiempo de entrega
+- Normalización básica para evitar ruido en countdowns de compra
+- Confirmación visual del destino consultado (`Laredo, TX 78041`)
+- Concurrencia controlada con `p-limit` (`MAX_CONCURRENT_SCRAPERS`)
+- Timeout por URL con `Promise.race()` (`SCRAPER_TIMEOUT_MS`)
+- Logs estructurados con `pino`
+- Layout de workspace con Dashboard, Productos y Alertas
+
+### v2 servidor — Planeado, no cerrado todavía
+- Despliegue con Docker + Traefik
+- Operación con build estático servido por Express
+- Protección por infraestructura (por ejemplo Traefik Basic Auth)
+- Separación de app y base de datos en contenedores
 
 ## Roadmap
 
@@ -503,19 +510,15 @@ Los mismos que v1, extendidos para v2:
 - Configuración automática de dirección a Laredo TX (ZIP 78041)
 - Exportación a JSON y CSV
 
-### v2 — Sistema interno con UI (esta versión)
-- Interfaz web (ingreso manual + carga de CSV/Excel)
-- Base de datos MySQL con Prisma
-- Historial de precios por producto con índice `(productoId, timestamp)`
-- Alertas de cambios en UI
-- Concurrencia controlada con `p-limit` (`MAX_CONCURRENT_SCRAPERS`)
-- Timeout por URL con `Promise.race()` (`SCRAPER_TIMEOUT_MS`)
-- Logs estructurados con `pino`
-- Autenticación via Traefik Basic Auth
-- Docker + Traefik para despliegue en servidor propio
+### v2 — Sistema interno con UI
+- Backend, scrapers, historial, alertas y UI local operativos
+- Cierre funcional actual enfocado en operación local validada
+- Despliegue a servidor tratado como subetapa posterior de v2, no como entregable ya cerrado
 
 ### v3 — Futuro
+- Importación/exportación masiva
 - Monitoreo automático programado (cron jobs)
 - Notificaciones por canal externo (email, Telegram, etc.)
 - Soporte para más marketplaces
 - Gráficas de evolución de precio por producto
+- Filtros, búsqueda y acciones masivas sobre inventario/alertas

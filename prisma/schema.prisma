@@ -23,7 +23,7 @@ enum ScrapingStatus {
 
 enum TipoAlerta {
   precio_cambio
-  disponibilidad_cambio
+  tiempo_entrega_cambio
 }
 
 // ─── Modelos ──────────────────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ model RegistroPrecio {
   precio         String?        @db.VarChar(64)
   envio          String?        @db.VarChar(256)
   tiempo_entrega String?        @db.VarChar(256)
+  destino_consultado String?    @db.VarChar(256)
   status         ScrapingStatus
   error_mensaje  String?        @db.VarChar(512)
   timestamp      DateTime       @default(now())

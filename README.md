@@ -1,17 +1,25 @@
 # IMX Scout
 
-IMX Scout es una API interna para monitoreo de productos en Amazon US y eBay. La aplicación recibe URLs o ASINs, ejecuta scraping con Playwright, guarda historial de precios en MySQL y genera alertas cuando detecta cambios entre ejecuciones.
+IMX Scout es un sistema interno para monitoreo de productos en Amazon US y eBay. La aplicación recibe URLs o ASINs, ejecuta scraping con Playwright, guarda historial de precios en MySQL y genera alertas cuando detecta cambios entre ejecuciones.
 
 ## Descripción
 
 La versión actual del proyecto corresponde a `v2` y ya incluye:
 
 - API REST con Express
+- Interfaz web local con React + Vite
 - Persistencia en MySQL con Prisma
 - Scraping de Amazon y eBay con Playwright
 - Historial de `RegistroPrecio`
-- Alertas de cambios de precio o disponibilidad
+- Alertas de cambios de precio o tiempos de tramitacion/entrega
+- Confirmación visual del destino consultado (`Laredo, TX 78041`)
 - Estado en memoria del scraping en curso
+
+Estado actual del alcance:
+
+- `v2 local`: funcional y validada para uso local
+- `despliegue a servidor`: siguiente etapa, fuera del cierre actual
+- `v3`: importación/exportación masiva, automatización y escalamiento funcional
 
 ## Requisitos Previos
 
@@ -84,7 +92,16 @@ npx prisma migrate dev
 npm run dev
 ```
 
-La API queda disponible en `http://localhost:3000`.
+8. En otra terminal, inicia la UI:
+
+```bash
+npm run client:dev
+```
+
+URLs locales:
+
+- API: `http://localhost:3000`
+- UI: `http://localhost:5173`
 
 ## Estructura Del Proyecto
 
@@ -114,8 +131,15 @@ imx-scout/
 │   ├── utils/
 │   │   ├── extractFirst.js
 │   │   └── logger.js
+│   ├── client/
+│   │   ├── index.html
+│   │   └── src/
+│   │       ├── App.jsx
+│   │       ├── main.jsx
+│   │       └── styles.css
 │   └── server.js
 ├── .env.example
+├── vite.config.js
 ├── package.json
 └── README.md
 ```
@@ -226,6 +250,7 @@ Ejemplo de response:
       "precio": "$19.99",
       "envio": "FREE delivery",
       "tiempo_entrega": "Wednesday, March 12",
+      "destino_consultado": "Laredo, TX 78041",
       "status": "ok",
       "error_mensaje": null,
       "timestamp": "2026-03-09T23:45:00.000Z"
@@ -347,6 +372,7 @@ Ejemplo de response:
       "precio": "$19.99",
       "envio": "FREE delivery",
       "tiempo_entrega": "Wednesday, March 12",
+      "destino_consultado": "Laredo, TX 78041",
       "timestamp": "2026-03-09T23:50:00.000Z",
       "status": "ok",
       "error_mensaje": null
@@ -396,6 +422,16 @@ curl http://localhost:3000/api/productos/1/historial
 curl http://localhost:3000/api/alertas
 ```
 
+## Interfaz Web
+
+La UI local tiene tres vistas principales:
+
+- `Dashboard`: centro operativo con estado general, nueva ejecución, alertas recientes y resumen de la última corrida
+- `Productos`: inventario monitoreado con historial por drawer lateral
+- `Alertas`: bandeja de cambios relevantes para precio y tiempo de entrega
+
+La UI muestra el destino logístico consultado como `Laredo, TX 78041` cuando corresponde.
+
 ## Variables De Entorno
 
 Archivo base: `.env.example`
@@ -432,6 +468,18 @@ Iniciar en desarrollo:
 
 ```bash
 npm run dev
+```
+
+Iniciar frontend local:
+
+```bash
+npm run client:dev
+```
+
+Construir frontend:
+
+```bash
+npm run client:build
 ```
 
 Ejecutar migraciones:

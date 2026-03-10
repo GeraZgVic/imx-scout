@@ -16,6 +16,7 @@
 const logger = require("../utils/logger");
 
 const DELIVERY_ZIP = "78041";
+const DELIVERY_DESTINATION = `ZIP ${DELIVERY_ZIP}`;
 
 const SELECTORS = {
   nombre: [
@@ -63,7 +64,7 @@ async function setDeliveryLocationAndExtract(page) {
     const verDetallesBtn = await page.$(".ux-labels-values--shipping button.ux-action");
     if (!verDetallesBtn) {
       logger.warn("[eBay] Botón 'Ver detalles' no encontrado.");
-      return { envio: null, tiempo_entrega: null };
+      return { envio: null, tiempo_entrega: null, destino_consultado: DELIVERY_DESTINATION };
     }
     await verDetallesBtn.click();
 
@@ -107,13 +108,14 @@ async function setDeliveryLocationAndExtract(page) {
     // lines[2]: "Obtenlo entre el mié. 11 mar. y el vie. 13 mar. a 78041"
     const envio          = lines.length > 0 ? lines.slice(0, 2).join(" — ") : null;
     const tiempo_entrega = lines[2] ?? null;
+    const destino_consultado = DELIVERY_DESTINATION;
 
     logger.info(`[eBay] Ubicación configurada: ZIP ${DELIVERY_ZIP} (Laredo, TX)`);
-    return { envio, tiempo_entrega };
+    return { envio, tiempo_entrega, destino_consultado };
 
   } catch (err) {
     logger.warn(`[eBay] No se pudo configurar la ubicación: ${err.message}`);
-    return { envio: null, tiempo_entrega: null };
+    return { envio: null, tiempo_entrega: null, destino_consultado: DELIVERY_DESTINATION };
   }
 }
 
@@ -130,14 +132,15 @@ async function scrapeEbay(page, url) {
 
   const nombre = await extractFirst(page, SELECTORS.nombre);
   const precio = await extractFirst(page, SELECTORS.precio);
-  const { envio, tiempo_entrega } = await setDeliveryLocationAndExtract(page);
+  const { envio, tiempo_entrega, destino_consultado } = await setDeliveryLocationAndExtract(page);
 
   logger.info(`[eBay] nombre:         ${nombre         ?? "null"}`);
   logger.info(`[eBay] precio:         ${precio         ?? "null"}`);
   logger.info(`[eBay] envio:          ${envio          ?? "null"}`);
   logger.info(`[eBay] tiempo_entrega: ${tiempo_entrega ?? "null"}`);
+  logger.info(`[eBay] destino:        ${destino_consultado ?? "null"}`);
 
-  return { nombre, precio, envio, tiempo_entrega };
+  return { nombre, precio, envio, tiempo_entrega, destino_consultado };
 }
 
 module.exports = { scrapeEbay };

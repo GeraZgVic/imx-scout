@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "client:dev": "vite src/client",
-    "client:build": "vite build src/client --outDir ../../dist",
+    "client:dev": "vite",
+    "client:build": "vite build",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy"
   },
@@ -18,7 +18,9 @@
     "p-limit": "^3.1.0",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",
-    "playwright": "^1.44.1"
+    "playwright": "^1.44.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.0",

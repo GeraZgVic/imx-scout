@@ -7,8 +7,8 @@
  * Los fallos en este servicio no interrumpen la respuesta al cliente.
  *
  * Tipos de alerta:
- *   - precio_cambio:        el precio cambió entre registros
- *   - disponibilidad_cambio: el envío cambió entre registros
+ *   - precio_cambio: el precio cambió entre registros
+ *   - tiempo_entrega_cambio: el tiempo de tramitación/entrega cambió entre registros
  */
 
 const logger = require("../utils/logger");
@@ -38,7 +38,7 @@ async function obtenerUltimosRegistros(productoId) {
  * Crea una alerta en la base de datos.
  *
  * @param {number} productoId
- * @param {"precio_cambio"|"disponibilidad_cambio"} tipo
+ * @param {"precio_cambio"|"tiempo_entrega_cambio"} tipo
  * @param {string} valorAnterior
  * @param {string} valorNuevo
  */
@@ -59,6 +59,24 @@ async function crearAlerta(productoId, tipo, valorAnterior, valorNuevo) {
   );
 }
 
+function normalizeComparableText(value) {
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().replace(/\s+/g, " ").toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeDeliveryWindow(value) {
+  const normalized = normalizeComparableText(value);
+  if (!normalized) return null;
+
+  return normalized
+    .replace(/order within .*?(?=(join prime|$))/gi, "")
+    .replace(/\bjoin prime\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ─── Comparador principal ─────────────────────────────────────────────────────
 
 /**
@@ -70,12 +88,10 @@ async function crearAlerta(productoId, tipo, valorAnterior, valorNuevo) {
  */
 async function compararYAlertar(productoId, actual, anterior) {
 
-  // Comparar precio
-  if (
-    actual.precio !== null &&
-    anterior.precio !== null &&
-    actual.precio !== anterior.precio
-  ) {
+  const precioActual = normalizeComparableText(actual.precio);
+  const precioAnterior = normalizeComparableText(anterior.precio);
+
+  if (precioActual !== null && precioAnterior !== null && precioActual !== precioAnterior) {
     await crearAlerta(
       productoId,
       "precio_cambio",
@@ -84,17 +100,15 @@ async function compararYAlertar(productoId, actual, anterior) {
     );
   }
 
-  // Comparar disponibilidad / envío
-  if (
-    actual.envio !== null &&
-    anterior.envio !== null &&
-    actual.envio !== anterior.envio
-  ) {
+  const tiempoActual = normalizeDeliveryWindow(actual.tiempo_entrega);
+  const tiempoAnterior = normalizeDeliveryWindow(anterior.tiempo_entrega);
+
+  if (tiempoActual !== null && tiempoAnterior !== null && tiempoActual !== tiempoAnterior) {
     await crearAlerta(
       productoId,
-      "disponibilidad_cambio",
-      anterior.envio,
-      actual.envio
+      "tiempo_entrega_cambio",
+      anterior.tiempo_entrega,
+      actual.tiempo_entrega
     );
   }
 }

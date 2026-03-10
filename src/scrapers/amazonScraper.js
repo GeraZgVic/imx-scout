@@ -54,6 +54,13 @@ const SELECTORS = {
     "#deliveryMessageMirId .a-text-bold",
   ],
 
+  ubicacion_entrega: [
+    "#glow-ingress-line2",
+    "#glow-ingress-block",
+    "#nav-global-location-data-modal-action",
+    "#contextualIngressPtLabel_deliveryShortLine",
+  ],
+
 };
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -83,6 +90,18 @@ async function extractFirst(page, selectors) {
     }
   }
   return null;
+}
+
+async function extractLocationText(page) {
+  return extractFirst(page, SELECTORS.ubicacion_entrega);
+}
+
+async function isDeliveryZipApplied(page) {
+  const locationText = await extractLocationText(page);
+  return {
+    applied: typeof locationText === "string" && locationText.includes(DELIVERY_ZIP),
+    locationText,
+  };
 }
 
 // ─── Dirección de entrega ─────────────────────────────────────────────────────
@@ -115,22 +134,55 @@ async function setDeliveryZip(page) {
     await page.type("#GLUXZipUpdateInput", DELIVERY_ZIP, { delay: 80 });
     await page.press("#GLUXZipUpdateInput", "Enter");
 
-    // Esperar a que Amazon procese el ZIP y renderice el modal de confirmación
     await page.waitForTimeout(2_000);
 
-    // El botón Continue (#GLUXConfirmClose) está en el DOM pero marcado como hidden.
-    // Playwright no puede clickearlo directamente; se dispara el evento desde el DOM.
-    await page.evaluate(() => {
-      const btn = document.querySelector("#GLUXConfirmClose");
-      if (btn) btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    });
+    const confirmSelectors = [
+      "#GLUXConfirmClose",
+      "input[name='glowDoneButton']",
+      "input.a-button-input",
+      "#a-autoid-1-announce",
+    ];
 
-    // Esperar a que Amazon recargue el buybox con la nueva ubicación
-    await page.waitForTimeout(4_000);
+    for (const selector of confirmSelectors) {
+      try {
+        const button = page.locator(selector).first();
+        if (await button.count()) {
+          await button.click({ force: true, timeout: 2_000 });
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
 
-    logger.info(`[Amazon] Ubicación de entrega configurada: ZIP ${DELIVERY_ZIP} (Laredo, TX)`);
+    await page.waitForLoadState("domcontentloaded").catch(() => {});
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { applied, locationText } = await isDeliveryZipApplied(page);
+
+      if (applied) {
+        logger.info(
+          { zip: DELIVERY_ZIP, locationText },
+          "[Amazon] Ubicación de entrega confirmada"
+        );
+        return { applied: true, locationText };
+      }
+
+      if (attempt < 2) {
+        await page.waitForTimeout(2_000);
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => {});
+      }
+    }
+
+    const { locationText } = await isDeliveryZipApplied(page);
+    logger.warn(
+      { zip: DELIVERY_ZIP, locationText: locationText ?? null },
+      "[Amazon] No se pudo confirmar el ZIP de entrega"
+    );
+    return { applied: false, locationText };
   } catch (err) {
     logger.warn(`[Amazon] No se pudo configurar la ubicación de entrega: ${err.message}`);
+    return { applied: false, locationText: null };
   }
 }
 
@@ -141,7 +193,7 @@ async function setDeliveryZip(page) {
  *
  * @param {import("playwright").Page} page - Página activa de Playwright
  * @param {string} url - URL del producto en Amazon
- * @returns {Promise<{ nombre: string|null, precio: string|null, envio: string|null, tiempo_entrega: string|null }>}
+ * @returns {Promise<{ nombre: string|null, precio: string|null, envio: string|null, tiempo_entrega: string|null, destino_consultado: string|null }>}
  */
 async function scrapeAmazon(page, url) {
   logger.info(`[Amazon] Cargando: ${url}`);
@@ -162,7 +214,7 @@ async function scrapeAmazon(page, url) {
   // Cambiar la ubicación de entrega a Laredo TX (ZIP 78041) antes de extraer.
   // Esto garantiza que precio, envío y tiempos de entrega reflejen la disponibilidad
   // real hacia la dirección de la paquetería del equipo, no hacia México.
-  await setDeliveryZip(page);
+  const deliveryLocation = await setDeliveryZip(page);
 
   const nombre         = await extractFirst(page, SELECTORS.nombre);
   const precio         = await extractFirst(page, SELECTORS.precio);
@@ -173,8 +225,17 @@ async function scrapeAmazon(page, url) {
   logger.info(`[Amazon] precio:         ${precio         ?? "null"}`);
   logger.info(`[Amazon] envio:          ${envio          ?? "null"}`);
   logger.info(`[Amazon] tiempo_entrega: ${tiempo_entrega ?? "null"}`);
+  const destino_consultado = deliveryLocation.locationText ?? null;
 
-  return { nombre, precio, envio, tiempo_entrega };
+  logger.info(
+    {
+      locationApplied: deliveryLocation.applied,
+      locationText: destino_consultado,
+    },
+    "[Amazon] delivery_location"
+  );
+
+  return { nombre, precio, envio, tiempo_entrega, destino_consultado };
 }
 
 module.exports = { scrapeAmazon };

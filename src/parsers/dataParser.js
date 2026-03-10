@@ -11,6 +11,7 @@
  *   precio:         string | null,
  *   envio:          string | null,
  *   tiempo_entrega: string | null,
+ *   destino_consultado: string | null,
  *   timestamp:      string (ISO 8601),
  *   status:         "ok" | "error",
  *   error_mensaje:  string | null
@@ -22,7 +23,7 @@
  *
  * @param {string} url
  * @param {string} plataforma
- * @param {{ nombre, precio, envio, tiempo_entrega }} datos
+ * @param {{ nombre, precio, envio, tiempo_entrega, destino_consultado }} datos
  * @returns {object}
  */
 function buildSuccess(url, plataforma, datos) {
@@ -33,6 +34,7 @@ function buildSuccess(url, plataforma, datos) {
     precio:         datos.precio         ?? null,
     envio:          datos.envio          ?? null,
     tiempo_entrega: datos.tiempo_entrega ?? null,
+    destino_consultado: datos.destino_consultado ?? null,
     timestamp:      new Date().toISOString(),
     status:         "ok",
     error_mensaje:  null,
@@ -55,6 +57,7 @@ function buildError(url, plataforma, mensajeError) {
     precio:         null,
     envio:          null,
     tiempo_entrega: null,
+    destino_consultado: null,
     timestamp:      new Date().toISOString(),
     status:         "error",
     error_mensaje:  mensajeError,
