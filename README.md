@@ -4,7 +4,7 @@ IMX Scout es un sistema interno para monitoreo de productos en Amazon US y eBay.
 
 ## Descripción
 
-La versión actual del proyecto corresponde a `v2` y ya incluye:
+La base del proyecto nace en `v2`, pero el estado actual ya incorpora una primera capa funcional de `v3` para monitoreo operativo. Hoy incluye:
 
 - API REST con Express
 - Interfaz web local con React + Vite
@@ -14,12 +14,19 @@ La versión actual del proyecto corresponde a `v2` y ya incluye:
 - Alertas de cambios de precio o tiempos de tramitacion/entrega
 - Confirmación visual del destino consultado (`Laredo, TX 78041`)
 - Estado en memoria del scraping en curso
+- Prioridad persistente por producto
+- Reconsulta de productos prioritarios
+- Estado operativo por producto basado en la última consulta real
+- Filtros persistentes por URL en la vista de productos
+- Historial compacto por defecto con opción de ver todo
+- Navegación persistente por URL entre vistas y drawer de historial
 
 Estado actual del alcance:
 
-- `v2 local`: funcional y validada para uso local
+- `v2 local`: cerrada
+- `v3 inicial`: monitoreo operativo ya funcional
 - `despliegue a servidor`: siguiente etapa, fuera del cierre actual
-- `v3`: importación/exportación masiva, automatización y escalamiento funcional
+- `v3 siguiente`: importación/exportación masiva, automatización y escalamiento funcional
 
 ## Requisitos Previos
 
@@ -168,6 +175,11 @@ Ejemplo de response:
       "plataforma": "amazon",
       "nombre": "Producto de ejemplo",
       "activo": true,
+      "prioritario": false,
+      "ultimoRegistro": {
+        "timestamp": "2026-03-25T19:20:00.000Z",
+        "status": "ok"
+      },
       "createdAt": "2026-03-09T23:40:00.000Z",
       "updatedAt": "2026-03-09T23:40:00.000Z"
     }
@@ -214,6 +226,23 @@ Errores esperados:
 
 - `400` si falta `url` y `asin`, o si la entrada no es válida
 - `409` si la URL ya existe en la base
+
+### PATCH /api/productos/:id
+
+Actualiza atributos operativos del producto. Actualmente soporta `prioritario`.
+
+Ejemplo de request:
+
+```bash
+curl -X PATCH http://localhost:3000/api/productos/2 \
+  -H "Content-Type: application/json" \
+  -d '{"prioritario":true}'
+```
+
+Errores esperados:
+
+- `400` si el `id` es inválido o `prioritario` no es boolean
+- `404` si el producto no existe
 
 ### DELETE /api/productos/:id
 
@@ -388,6 +417,21 @@ Errores esperados:
 - `400` si se excede `MAX_URLS_PER_REQUEST`
 - `500` si ocurre un error inesperado del servidor
 
+### POST /api/scraping/prioritarios
+
+Ejecuta scraping sobre todos los productos marcados como prioritarios y activos.
+
+Ejemplo de request:
+
+```bash
+curl -X POST http://localhost:3000/api/scraping/prioritarios
+```
+
+Errores esperados:
+
+- `400` si no hay productos prioritarios
+- `400` si ya hay un scraping en curso
+
 ## Cómo Correr Scraping Desde curl
 
 1. Verifica el estado actual:
@@ -426,11 +470,18 @@ curl http://localhost:3000/api/alertas
 
 La UI local tiene tres vistas principales:
 
-- `Dashboard`: centro operativo con estado general, nueva ejecución, alertas recientes y resumen de la última corrida
-- `Productos`: inventario monitoreado con historial por drawer lateral
-- `Alertas`: bandeja de cambios relevantes para precio y tiempo de entrega
+- `Dashboard` (`/dashboard`): centro operativo con estado general, nueva ejecución, alertas recientes y resumen de la última corrida
+- `Productos` (`/productos`): inventario monitoreado con prioridad, estado operativo, filtros y drawer lateral de historial
+- `Alertas` (`/alertas`): bandeja de cambios relevantes para precio y tiempo de entrega
 
 La UI muestra el destino logístico consultado como `Laredo, TX 78041` cuando corresponde.
+
+Persistencia actual de UX:
+
+- La navegación entre vistas usa URL reales
+- El historial puede abrirse por URL con `?historial=:id`
+- Los filtros de productos se conservan en query params (`q`, `prioridad`, `estado`, `plataforma`)
+- El historial se abre en vista compactada por defecto para reducir ruido
 
 ## Variables De Entorno
 

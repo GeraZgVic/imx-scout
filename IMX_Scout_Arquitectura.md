@@ -1,10 +1,10 @@
-# IMX Scout v2 — Arquitectura del Sistema
+# IMX Scout — Arquitectura del Sistema
 
 ## Descripción General
 
-IMX Scout v2 convierte la herramienta de línea de comandos de v1 en un sistema interno completo con interfaz web, base de datos persistente e historial de precios.
+IMX Scout nació como `v2` al convertir la herramienta de línea de comandos de `v1` en un sistema interno con interfaz web, base de datos persistente e historial de precios.
 
-El equipo puede ingresar URLs y ASINs directamente desde el navegador, ejecutar scraping bajo demanda, ver el historial por producto y revisar alertas de cambios en precio o tiempo de entrega sin editar archivos manualmente.
+La rama actual ya incorpora una primera capa funcional de `v3`: prioridad por producto, reconsulta de prioritarios, estado operativo basado en la última consulta real, filtros persistentes en URL e historial compactado en UI.
 
 ---
 
@@ -114,6 +114,7 @@ Representa un producto que el equipo monitorea. Cada entrada es única por URL.
 | `plataforma` | Enum `amazon / ebay` | Plataforma detectada |
 | `nombre` | String (nullable) | Nombre del producto |
 | `activo` | Boolean | Si el producto está siendo monitoreado |
+| `prioritario` | Boolean | Si el producto entra en corridas prioritarias |
 | `createdAt` | DateTime | Fecha de alta |
 | `updatedAt` | DateTime | Última actualización |
 
@@ -195,6 +196,7 @@ Respuesta a la UI con resultados
 |---|---|---|
 | `GET` | `/api/productos` | Lista todos los productos monitoreados |
 | `POST` | `/api/productos` | Agrega un producto por URL o ASIN |
+| `PATCH` | `/api/productos/:id` | Actualiza atributos operativos del producto (`prioritario`) |
 | `DELETE` | `/api/productos/:id` | Elimina un producto |
 | `GET` | `/api/productos/:id/historial` | Historial de precios de un producto |
 
@@ -203,6 +205,7 @@ Respuesta a la UI con resultados
 | Método | Endpoint | Descripción |
 |---|---|---|
 | `POST` | `/api/scraping/ejecutar` | Ejecuta scraping sobre una lista de entradas |
+| `POST` | `/api/scraping/prioritarios` | Ejecuta scraping sobre productos prioritarios activos |
 | `GET` | `/api/scraping/estado` | Estado del scraping en curso (si hay uno activo) |
 
 ### Alertas
@@ -227,7 +230,10 @@ Vista principal. Muestra:
 
 ### Productos
 Lista de todos los productos que el equipo ha procesado alguna vez. Permite:
-- Ver el historial de cada producto en un drawer lateral
+- Marcar productos como prioritarios
+- Reconsultar productos prioritarios
+- Filtrar por texto, prioridad, estado y plataforma
+- Ver el historial de cada producto en un drawer lateral compactado o completo
 - Eliminar un producto del seguimiento
 
 ### Alertas
@@ -271,9 +277,9 @@ Este enfoque acerca el producto a una experiencia más premium porque expone cri
 - No implica consultas agresivas ni simultáneas sobre todo el catálogo
 - Ideal para mantener una base de referencia actualizada sin depender de ejecución manual producto por producto
 
-#### 4. Frescura visible en UI
-- Cada producto debe exponer claramente su última consulta
-- Se puede traducir a estados de negocio como `fresco`, `reciente`, `desactualizado`
+#### 4. Estado de revisión visible en UI
+- Cada producto debe exponer claramente su última consulta real
+- Se traduce a estados de negocio como `al dia`, `por revisar`, `atrasado`, `sin revisar`
 - Esto evita que el usuario dependa del historial para saber si un dato sigue vigente
 
 ### Principios operativos de este modelo
@@ -302,10 +308,9 @@ La arquitectura actual ya permite una primera versión de este enfoque porque ex
 - historial y alertas por producto
 
 La complejidad adicional real aparecería al agregar:
-- atributo de prioridad por producto
 - programaciones automáticas
 - lotes por ventanas
-- indicadores de frescura en UI
+- dashboards más ricos y acciones masivas
 - reglas de protección frente a bloqueo o CAPTCHA
 
 No se requiere rediseño completo para iniciar esta evolución; puede implementarse de forma incremental sobre v2.
@@ -557,7 +562,7 @@ Los mismos que v1, extendidos para v2:
 
 ## Estado por Etapa
 
-### v2 local — Cerrando alcance actual
+### v2 local — Cerrada
 - Interfaz web para operación local
 - Ingreso manual de URLs y ASINs
 - Base de datos MySQL con Prisma
@@ -569,6 +574,14 @@ Los mismos que v1, extendidos para v2:
 - Timeout por URL con `Promise.race()` (`SCRAPER_TIMEOUT_MS`)
 - Logs estructurados con `pino`
 - Layout de workspace con Dashboard, Productos y Alertas
+
+### v3 inicial — Ya incorporado
+- Prioridad persistente por producto
+- Reconsulta de productos prioritarios
+- Estado operativo por producto basado en el último `RegistroPrecio`
+- Filtros por texto, prioridad, estado y plataforma
+- Persistencia del contexto de navegación en URL
+- Drawer de historial compactado por defecto con opción de ver todo
 
 ### v2 servidor — Planeado, no cerrado todavía
 - Despliegue con Docker + Traefik
@@ -593,7 +606,7 @@ Los mismos que v1, extendidos para v2:
 - Importación/exportación masiva
 - Monitoreo automático programado (cron jobs)
 - Reconsulta por niveles: individual, prioritarios y catálogo completo
-- Indicadores de frescura por producto (`última consulta`, `fresco`, `desactualizado`)
+- Persistencia completa de filtros y vistas de trabajo más avanzadas
 - Notificaciones por canal externo (email, Telegram, etc.)
 - Soporte para más marketplaces
 - Gráficas de evolución de precio por producto
