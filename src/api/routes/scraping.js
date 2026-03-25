@@ -4,6 +4,7 @@
  */
 
 const router = require("express").Router();
+const prisma = require("../../lib/prisma");
 const { ejecutarScraping, getEstado } = require("../../services/scraperService");
 
 // GET /api/scraping/estado
@@ -34,6 +35,35 @@ router.post("/ejecutar", async (req, res, next) => {
       return res.status(400).json({ error: err.message });
     }
     next(err);
+  }
+});
+
+router.post("/prioritarios", async (_req, res, next) => {
+  try {
+    const productos = await prisma.producto.findMany({
+      where: { prioritario: true, activo: true },
+      orderBy: { updatedAt: "asc" },
+      select: { url: true },
+    });
+
+    const entries = productos.map((producto) => producto.url).filter(Boolean);
+
+    if (entries.length === 0) {
+      return res.status(400).json({ error: "No hay productos prioritarios para consultar." });
+    }
+
+    const resultado = await ejecutarScraping(entries);
+    return res.json(resultado);
+  } catch (err) {
+    if (
+      err.message.includes("Ya hay un scraping") ||
+      err.message.includes("Máximo") ||
+      err.message.includes("Ninguna entrada")
+    ) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    return next(err);
   }
 });
 

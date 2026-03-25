@@ -32,11 +32,132 @@ const VIEW_META = {
 
 const DEFAULT_DESTINATION_LABEL = "Laredo, TX 78041";
 
+function getViewFromPath(pathname) {
+  if (pathname === "/" || pathname === "/dashboard") return "dashboard";
+  if (pathname === "/productos") return "productos";
+  if (pathname === "/alertas") return "alertas";
+  return "dashboard";
+}
+
+function readRouteFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const historialId = Number(params.get("historial"));
+
+  return {
+    view: getViewFromPath(window.location.pathname),
+    historialId: Number.isInteger(historialId) && historialId > 0 ? historialId : null,
+    filters: {
+      search: params.get("q") || "",
+      prioridad: params.get("prioridad") || "all",
+      estado: params.get("estado") || "all",
+      plataforma: params.get("plataforma") || "all",
+    },
+  };
+}
+
+function buildUrl(view, historialId = null, filters = null) {
+  const pathname = view === "dashboard" ? "/dashboard" : `/${view}`;
+  const params = new URLSearchParams();
+
+  if (view === "productos" && historialId) {
+    params.set("historial", String(historialId));
+  }
+
+  if (view === "productos" && filters) {
+    if (filters.search) params.set("q", filters.search);
+    if (filters.prioridad && filters.prioridad !== "all") params.set("prioridad", filters.prioridad);
+    if (filters.estado && filters.estado !== "all") params.set("estado", filters.estado);
+    if (filters.plataforma && filters.plataforma !== "all") params.set("plataforma", filters.plataforma);
+  }
+
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
 function formatDate(value) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(
     new Date(value)
   );
+}
+
+function getReviewStateMeta(value) {
+  if (!value) {
+    return {
+      tone: "warning",
+      label: "Sin revisar",
+      detail: "Aun no hay una corrida registrada",
+    };
+  }
+
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffHours <= 24) {
+    return {
+      tone: "success",
+      label: "Al dia",
+      detail: "Consultado en las ultimas 24 horas",
+    };
+  }
+
+  if (diffHours <= 72) {
+    return {
+      tone: "warning",
+      label: "Por revisar",
+      detail: "Conviene revisarlo pronto",
+    };
+  }
+
+  return {
+    tone: "error",
+    label: "Atrasado",
+    detail: "Supera las 72 horas sin consulta",
+  };
+}
+
+function getHistorySignature(item) {
+  return JSON.stringify({
+    precio: item.precio || null,
+    envio: item.envio || null,
+    tiempo_entrega: item.tiempo_entrega || null,
+    destino: inferDestino(item.destino_consultado, item.tiempo_entrega),
+    status: item.status || null,
+    error: item.error_mensaje || null,
+  });
+}
+
+function compactHistory(historial) {
+  if (!Array.isArray(historial) || historial.length === 0) return EMPTY_COLLECTION;
+
+  const groups = [];
+
+  for (const item of historial) {
+    const signature = getHistorySignature(item);
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup.signature === signature) {
+      lastGroup.items.push(item);
+      lastGroup.firstTimestamp = item.timestamp;
+      continue;
+    }
+
+    groups.push({
+      id: item.id,
+      signature,
+      items: [item],
+      firstTimestamp: item.timestamp,
+      lastTimestamp: item.timestamp,
+      representative: item,
+    });
+  }
+
+  return groups;
+}
+
+function matchesReviewState(producto, reviewStateFilter) {
+  if (reviewStateFilter === "all") return true;
+  return getReviewStateMeta(producto.ultimoRegistro?.timestamp).label.toLowerCase() === reviewStateFilter;
 }
 
 function splitEntries(text) {
@@ -320,12 +441,43 @@ function DashboardView({
 function ProductosView({
   loading,
   productos,
+  routeFilters,
+  onFiltersChange,
   handleLoadHistorial,
   handleRecheckProducto,
+  handleRecheckPrioritarios,
+  recheckingPrioritarios,
   recheckingProductId,
+  handleTogglePrioridad,
+  togglingPriorityId,
   handleDeleteProducto,
+  priorityNotice,
   goToDashboard,
 }) {
+  const searchTerm = routeFilters.search || "";
+  const priorityFilter = routeFilters.prioridad || "all";
+  const reviewStateFilter = routeFilters.estado || "all";
+  const platformFilter = routeFilters.plataforma || "all";
+  const prioritizedCount = productos.filter((producto) => producto.prioritario).length;
+  const filteredProducts = productos.filter((producto) => {
+    const query = searchTerm.trim().toLowerCase();
+    const productText = [
+      producto.nombre || "",
+      producto.asin || "",
+      producto.url || "",
+      producto.plataforma || "",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (query && !productText.includes(query)) return false;
+    if (priorityFilter === "prioritarios" && !producto.prioritario) return false;
+    if (priorityFilter === "normales" && producto.prioritario) return false;
+    if (platformFilter !== "all" && producto.plataforma !== platformFilter) return false;
+    if (!matchesReviewState(producto, reviewStateFilter)) return false;
+    return true;
+  });
+
   return (
     <div className="view">
       <ViewHeader
@@ -338,40 +490,122 @@ function ProductosView({
       <div className="view-toolbar">
         <div className="toolbar-copy">
           <span className="label">Escala</span>
-          <p>Esta tabla sera la base para filtros, importacion masiva y acciones por lote.</p>
+          <p>
+            Marca un producto como prioritario para incluirlo despues en corridas rapidas de
+            seguimiento. No cambia el scraping actual por si solo; lo clasifica para acciones v3.
+          </p>
         </div>
         <div className="toolbar-chips">
+          <button
+            className="btn btn--primary btn--xs"
+            type="button"
+            disabled={recheckingPrioritarios || prioritizedCount === 0}
+            onClick={handleRecheckPrioritarios}
+          >
+            {recheckingPrioritarios ? "Consultando prioritarios..." : "Reconsultar prioritarios"}
+          </button>
           <span className="toolbar-pill">{productos.length} productos</span>
+          <span className="toolbar-pill">{prioritizedCount} prioritarios</span>
           <span className="toolbar-pill">Historial por drawer</span>
         </div>
       </div>
+      {priorityNotice && <div className="info-banner">{priorityNotice}</div>}
       <div className="card">
         {loading ? (
           <p className="empty">Cargando…</p>
         ) : productos.length === 0 ? (
           <p className="empty">Sin productos registrados.</p>
         ) : (
-          <div className="table-wrap">
+          <>
+            <div className="filters-bar">
+              <input
+                className="filter-input"
+                type="text"
+                value={searchTerm}
+                placeholder="Buscar por nombre, ASIN o URL"
+                onChange={(e) => onFiltersChange({ search: e.target.value })}
+              />
+              <select
+                className="filter-select"
+                value={priorityFilter}
+                onChange={(e) => onFiltersChange({ prioridad: e.target.value })}
+              >
+                <option value="all">Todas las prioridades</option>
+                <option value="prioritarios">Solo prioritarios</option>
+                <option value="normales">Solo normales</option>
+              </select>
+              <select
+                className="filter-select"
+                value={reviewStateFilter}
+                onChange={(e) => onFiltersChange({ estado: e.target.value })}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="al dia">Al dia</option>
+                <option value="por revisar">Por revisar</option>
+                <option value="atrasado">Atrasado</option>
+                <option value="sin revisar">Sin revisar</option>
+              </select>
+              <select
+                className="filter-select"
+                value={platformFilter}
+                onChange={(e) => onFiltersChange({ plataforma: e.target.value })}
+              >
+                <option value="all">Todas las plataformas</option>
+                <option value="amazon">Amazon</option>
+                <option value="ebay">eBay</option>
+              </select>
+              <span className="toolbar-pill">{filteredProducts.length} visibles</span>
+            </div>
+            <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
                   <th>Producto</th>
+                  <th>Prioridad</th>
                   <th>Plataforma</th>
                   <th>ASIN</th>
-                  <th>Actualizado</th>
+                  <th>Estado</th>
+                  <th>Ultima consulta</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {productos.map((p) => (
+                {filteredProducts.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <strong>{p.nombre || "Sin nombre"}</strong>
                       <span className="url-cell">{p.url}</span>
                     </td>
+                    <td>
+                      <button
+                        className={`priority-toggle ${p.prioritario ? "priority-toggle--active" : ""}`}
+                        type="button"
+                        disabled={togglingPriorityId === p.id}
+                        onClick={() => handleTogglePrioridad(p)}
+                      >
+                        {togglingPriorityId === p.id
+                          ? "Guardando..."
+                          : p.prioritario
+                            ? "Prioritario"
+                            : "Normal"}
+                      </button>
+                      <span className="table-subtle">
+                        {p.prioritario
+                          ? "Se incluira en corridas prioritarias."
+                          : "No entra en lotes prioritarios todavia."}
+                      </span>
+                    </td>
                     <td>{p.plataforma}</td>
                     <td>{p.asin || "—"}</td>
-                    <td>{formatDate(p.updatedAt)}</td>
+                    <td>
+                      <span className={`badge badge--${getReviewStateMeta(p.ultimoRegistro?.timestamp).tone}`}>
+                        {getReviewStateMeta(p.ultimoRegistro?.timestamp).label}
+                      </span>
+                      <span className="table-subtle">
+                        {getReviewStateMeta(p.ultimoRegistro?.timestamp).detail}
+                      </span>
+                    </td>
+                    <td>{formatDate(p.ultimoRegistro?.timestamp)}</td>
                     <td className="actions">
                       <button
                         className="btn btn--primary btn--xs"
@@ -400,7 +634,11 @@ function ProductosView({
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            {filteredProducts.length === 0 && (
+              <p className="empty">No hay productos que coincidan con los filtros actuales.</p>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -481,10 +719,13 @@ function HistorialDrawer({
   historialProducto,
   historial,
   historyLoading,
-  setHistorialProducto,
-  setHistorial,
+  onClose,
 }) {
+  const [compactMode, setCompactMode] = useState(true);
   const open = !!historialProducto;
+  const historyGroups = compactHistory(historial);
+  const visibleHistory = compactMode ? historyGroups : historial;
+
   return (
     <aside className={`drawer ${open ? "drawer--open" : ""}`}>
       <div className="drawer-header">
@@ -502,15 +743,32 @@ function HistorialDrawer({
           <button
             className="btn btn--ghost btn--xs"
             type="button"
-            onClick={() => {
-              setHistorialProducto(null);
-              setHistorial(EMPTY_COLLECTION);
-            }}
+            onClick={onClose}
           >
             Cerrar
           </button>
         )}
       </div>
+
+      {historialProducto && historial.length > 0 && (
+        <div className="drawer-toolbar">
+          <div className="drawer-toolbar-copy">
+            <strong>{compactMode ? "Vista compactada" : "Vista completa"}</strong>
+            <span>
+              {compactMode
+                ? `${historyGroups.length} bloques visibles de ${historial.length} registros.`
+                : `${historial.length} registros individuales.`}
+            </span>
+          </div>
+          <button
+            className="btn btn--ghost btn--xs"
+            type="button"
+            onClick={() => setCompactMode((current) => !current)}
+          >
+            {compactMode ? "Ver todo" : "Compactar"}
+          </button>
+        </div>
+      )}
 
       {historyLoading ? (
         <div className="drawer-empty">
@@ -532,18 +790,47 @@ function HistorialDrawer({
         </div>
       ) : (
         <div className="timeline">
-          {historial.map((item) => (
-            <div className="timeline-item" key={item.id}>
-              <div className="timeline-head">
-                <strong>{item.precio || "Sin precio"}</strong>
-                <span className={`badge badge--${item.status}`}>{item.status}</span>
-              </div>
-              <span>Envío: {item.envio || "—"}</span>
-              <span>Entrega: {item.tiempo_entrega || "—"}</span>
-              <span>Destino: {inferDestino(item.destino_consultado, item.tiempo_entrega)}</span>
-              <small>{formatDate(item.timestamp)}</small>
-            </div>
-          ))}
+          {compactMode
+            ? visibleHistory.map((group) => {
+                const item = group.representative;
+                const repeated = group.items.length > 1;
+
+                return (
+                  <div className="timeline-item" key={group.id}>
+                    <div className="timeline-head">
+                      <strong>{item.precio || "Sin precio"}</strong>
+                      <span className={`badge badge--${item.status}`}>{item.status}</span>
+                    </div>
+                    <span>Envío: {item.envio || "—"}</span>
+                    <span>Entrega: {item.tiempo_entrega || "—"}</span>
+                    <span>Destino: {inferDestino(item.destino_consultado, item.tiempo_entrega)}</span>
+                    {item.error_mensaje && <span>Error: {item.error_mensaje}</span>}
+                    {repeated && (
+                      <div className="timeline-cluster">
+                        <span className="badge badge--warning">x{group.items.length}</span>
+                        <small>
+                          Sin cambios entre {formatDate(group.firstTimestamp)} y{" "}
+                          {formatDate(group.lastTimestamp)}
+                        </small>
+                      </div>
+                    )}
+                    {!repeated && <small>{formatDate(item.timestamp)}</small>}
+                  </div>
+                );
+              })
+            : visibleHistory.map((item) => (
+                <div className="timeline-item" key={item.id}>
+                  <div className="timeline-head">
+                    <strong>{item.precio || "Sin precio"}</strong>
+                    <span className={`badge badge--${item.status}`}>{item.status}</span>
+                  </div>
+                  <span>Envío: {item.envio || "—"}</span>
+                  <span>Entrega: {item.tiempo_entrega || "—"}</span>
+                  <span>Destino: {inferDestino(item.destino_consultado, item.tiempo_entrega)}</span>
+                  {item.error_mensaje && <span>Error: {item.error_mensaje}</span>}
+                  <small>{formatDate(item.timestamp)}</small>
+                </div>
+              ))}
         </div>
       )}
     </aside>
@@ -554,7 +841,9 @@ function HistorialDrawer({
    ROOT APP
 ───────────────────────────────────────────── */
 export default function App() {
-  const [activeView, setActiveView] = useState("dashboard");
+  const [activeView, setActiveView] = useState(() => readRouteFromLocation().view);
+  const [routeHistorialId, setRouteHistorialId] = useState(() => readRouteFromLocation().historialId);
+  const [routeFilters, setRouteFilters] = useState(() => readRouteFromLocation().filters);
   const [productos, setProductos] = useState(EMPTY_COLLECTION);
   const [alertas, setAlertas] = useState(EMPTY_COLLECTION);
   const [estado, setEstado] = useState(EMPTY_STATUS);
@@ -565,9 +854,37 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [recheckingProductId, setRecheckingProductId] = useState(null);
+  const [recheckingPrioritarios, setRecheckingPrioritarios] = useState(false);
+  const [togglingPriorityId, setTogglingPriorityId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState("");
+  const [priorityNotice, setPriorityNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  function navigateToView(view, options = {}) {
+    const {
+      historialId = null,
+      replace = false,
+      filters = view === "productos" ? routeFilters : null,
+    } = options;
+    const nextUrl = buildUrl(view, historialId, filters);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+
+    setActiveView(view);
+    setRouteHistorialId(historialId);
+    if (view === "productos" && filters) {
+      setRouteFilters(filters);
+    }
+
+    if (currentUrl === nextUrl) return;
+
+    if (replace) {
+      window.history.replaceState({}, "", nextUrl);
+      return;
+    }
+
+    window.history.pushState({}, "", nextUrl);
+  }
 
   async function loadDashboard() {
     const [productosData, alertasData, estadoData] = await Promise.all([
@@ -581,6 +898,25 @@ export default function App() {
       setEstado(estadoData || EMPTY_STATUS);
     });
   }
+
+  useEffect(() => {
+    const initialRoute = readRouteFromLocation();
+    navigateToView(initialRoute.view, {
+      historialId: initialRoute.historialId,
+      filters: initialRoute.filters,
+      replace: window.location.pathname === "/",
+    });
+
+    function handlePopState() {
+      const nextRoute = readRouteFromLocation();
+      setActiveView(nextRoute.view);
+      setRouteHistorialId(nextRoute.historialId);
+      setRouteFilters(nextRoute.filters);
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -608,6 +944,37 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeView !== "productos") return;
+
+    if (!routeHistorialId) {
+      if (historialProducto) {
+        setHistorialProducto(null);
+        setHistorial(EMPTY_COLLECTION);
+      }
+      return;
+    }
+
+    const producto = productos.find((item) => item.id === routeHistorialId);
+    if (!producto || historialProducto?.id === routeHistorialId) return;
+
+    async function syncHistorialFromRoute() {
+      try {
+        setHistoryLoading(true);
+        setError("");
+        const result = await api(`/api/productos/${producto.id}/historial`);
+        setHistorialProducto(producto);
+        setHistorial(getItems(result));
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+
+    syncHistorialFromRoute();
+  }, [activeView, routeHistorialId, productos, historialProducto]);
+
   async function runScrapingEntries(entries, options = {}) {
     const { resetInput = false, productToRefresh = null, targetView = "dashboard" } = options;
 
@@ -630,8 +997,23 @@ export default function App() {
       setHistorial(getItems(refreshedHistory));
     }
 
-    setActiveView(targetView);
+    navigateToView(targetView, {
+      historialId: targetView === "productos" ? productToRefresh?.id || routeHistorialId : null,
+      filters: targetView === "productos" ? routeFilters : null,
+    });
     return result;
+  }
+
+  function handleProductosFiltersChange(partialFilters) {
+    const nextFilters = {
+      ...routeFilters,
+      ...partialFilters,
+    };
+
+    navigateToView("productos", {
+      historialId: routeHistorialId,
+      filters: nextFilters,
+    });
   }
 
   async function handleRunScraping(e) {
@@ -667,13 +1049,56 @@ export default function App() {
     }
   }
 
+  async function handleRecheckPrioritarios() {
+    try {
+      setRecheckingPrioritarios(true);
+      setError("");
+      setPriorityNotice("");
+      const result = await api("/api/scraping/prioritarios", {
+        method: "POST",
+      });
+      setLastRun(result);
+      await loadDashboard();
+      setPriorityNotice(
+        `Corrida prioritaria completada: ${result.exitosos} exitosos y ${result.errores} con error.`
+      );
+      navigateToView("productos", { historialId: routeHistorialId, filters: routeFilters });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRecheckingPrioritarios(false);
+    }
+  }
+
+  async function handleTogglePrioridad(producto) {
+    try {
+      setTogglingPriorityId(producto.id);
+      setError("");
+      setPriorityNotice("");
+      const nextPriority = !producto.prioritario;
+      await api(`/api/productos/${producto.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ prioritario: nextPriority }),
+      });
+      await loadDashboard();
+      setPriorityNotice(
+        nextPriority
+          ? `“${producto.nombre || producto.asin || `Producto ${producto.id}`}” ahora esta marcado como prioritario y podra entrar en corridas prioritarias.`
+          : `“${producto.nombre || producto.asin || `Producto ${producto.id}`}” volvio a estado normal y ya no se incluira en corridas prioritarias.`
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTogglingPriorityId(null);
+    }
+  }
+
   async function handleDeleteProducto(id) {
     try {
       setError("");
       await api(`/api/productos/${id}`, { method: "DELETE" });
       if (historialProducto?.id === id) {
-        setHistorialProducto(null);
-        setHistorial(EMPTY_COLLECTION);
+        navigateToView("productos");
       }
       await loadDashboard();
     } catch (err) {
@@ -682,18 +1107,13 @@ export default function App() {
   }
 
   async function handleLoadHistorial(producto) {
-    try {
-      setHistoryLoading(true);
-      setError("");
-      const result = await api(`/api/productos/${producto.id}/historial`);
-      setHistorialProducto(producto);
-      setHistorial(getItems(result));
-      setActiveView("productos");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setHistoryLoading(false);
+    if (historialProducto?.id === producto.id && routeHistorialId === producto.id) {
+      navigateToView("productos", { historialId: producto.id });
+      return;
     }
+
+    setError("");
+    navigateToView("productos", { historialId: producto.id, filters: routeFilters });
   }
 
   async function handleMarkAlertaLeida(id) {
@@ -724,7 +1144,7 @@ export default function App() {
               key={item.id}
               className={`nav-item ${activeView === item.id ? "nav-item--active" : ""}`}
               onClick={() => {
-                setActiveView(item.id);
+                navigateToView(item.id);
                 setSidebarOpen(false);
               }}
               type="button"
@@ -790,19 +1210,26 @@ export default function App() {
               handleRecheckProducto={handleRecheckProducto}
               recheckingProductId={recheckingProductId}
               handleMarkAlertaLeida={handleMarkAlertaLeida}
-              goToProductos={() => setActiveView("productos")}
-              goToAlertas={() => setActiveView("alertas")}
+              goToProductos={() => navigateToView("productos")}
+              goToAlertas={() => navigateToView("alertas")}
             />
           )}
           {activeView === "productos" && (
             <ProductosView
               loading={loading}
               productos={productos}
+              routeFilters={routeFilters}
+              onFiltersChange={handleProductosFiltersChange}
               handleLoadHistorial={handleLoadHistorial}
               handleRecheckProducto={handleRecheckProducto}
+              handleRecheckPrioritarios={handleRecheckPrioritarios}
+              recheckingPrioritarios={recheckingPrioritarios}
               recheckingProductId={recheckingProductId}
+              handleTogglePrioridad={handleTogglePrioridad}
+              togglingPriorityId={togglingPriorityId}
               handleDeleteProducto={handleDeleteProducto}
-              goToDashboard={() => setActiveView("dashboard")}
+              priorityNotice={priorityNotice}
+              goToDashboard={() => navigateToView("dashboard")}
             />
           )}
           {activeView === "alertas" && (
@@ -810,7 +1237,7 @@ export default function App() {
               loading={loading}
               alertas={alertas}
               handleMarkAlertaLeida={handleMarkAlertaLeida}
-              goToDashboard={() => setActiveView("dashboard")}
+              goToDashboard={() => navigateToView("dashboard")}
             />
           )}
         </main>
@@ -821,8 +1248,7 @@ export default function App() {
           historialProducto={historialProducto}
           historial={historial}
           historyLoading={historyLoading}
-          setHistorialProducto={setHistorialProducto}
-          setHistorial={setHistorial}
+          onClose={() => navigateToView("productos")}
         />
       )}
     </div>
