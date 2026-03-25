@@ -238,6 +238,80 @@ Lista de cambios detectados en las últimas ejecuciones:
 
 ---
 
+## Evolución Funcional Propuesta — Monitoreo por Niveles
+
+Como evolución natural del sistema, IMX Scout puede pasar de un modelo de scraping bajo demanda a un modelo de monitoreo con niveles de frescura. Esto mejora la percepción de control, reduce consultas innecesarias y permite operar el catálogo con distintos niveles de prioridad.
+
+### Objetivo
+
+Separar claramente entre:
+- consulta inmediata de un producto puntual
+- seguimiento frecuente de productos críticos
+- revisión total del catálogo en ventanas controladas
+
+Este enfoque acerca el producto a una experiencia más premium porque expone criterio operativo y no solo capacidad técnica de scraping.
+
+### Flujo objetivo
+
+#### 1. Reconsulta individual
+- Acción disponible desde cada producto guardado
+- Ejecuta scraping inmediato de una sola URL
+- Refresca historial y alertas del producto consultado
+- Se usa cuando el equipo necesita validar un dato puntual en el momento
+
+#### 2. Reconsulta de productos prioritarios
+- Subconjunto de productos marcado manualmente como prioritario
+- Permite corridas más frecuentes sobre SKUs sensibles
+- Reduce costo operativo frente a consultar todo el catálogo
+- Debe ser el primer paso antes de habilitar automatización intensiva
+
+#### 3. Reconsulta total programada
+- Corrida de todo el inventario en una ventana controlada
+- Pensada para operación nocturna, semanal o por lotes
+- No implica consultas agresivas ni simultáneas sobre todo el catálogo
+- Ideal para mantener una base de referencia actualizada sin depender de ejecución manual producto por producto
+
+#### 4. Frescura visible en UI
+- Cada producto debe exponer claramente su última consulta
+- Se puede traducir a estados de negocio como `fresco`, `reciente`, `desactualizado`
+- Esto evita que el usuario dependa del historial para saber si un dato sigue vigente
+
+### Principios operativos de este modelo
+
+- No consultar todo el catálogo con alta concurrencia por defecto
+- Priorizar lotes pequeños y controlados antes que ráfagas masivas
+- Mantener concurrencia moderada y posibilidad de pausas entre requests
+- Detener o degradar la corrida si aparecen demasiados errores, timeouts o señales de bloqueo
+- Tratar consulta manual, prioritarios y catálogo completo como niveles distintos de servicio
+
+### Beneficio de producto
+
+Este modelo transforma IMX Scout de una herramienta de scraping manual a una herramienta de monitoreo operativo:
+- mejor percepción de confiabilidad
+- mejor equilibrio entre frescura y riesgo de bloqueo
+- mejor uso del tiempo del equipo
+- base más clara para futuras automatizaciones, exportaciones o sincronización con hojas de cálculo
+
+### Impacto técnico esperado
+
+La arquitectura actual ya permite una primera versión de este enfoque porque existen:
+- productos persistidos en MySQL
+- endpoint de scraping por lote (`entries`)
+- estado de scraping en memoria
+- límites de concurrencia vía `MAX_CONCURRENT_SCRAPERS`
+- historial y alertas por producto
+
+La complejidad adicional real aparecería al agregar:
+- atributo de prioridad por producto
+- programaciones automáticas
+- lotes por ventanas
+- indicadores de frescura en UI
+- reglas de protección frente a bloqueo o CAPTCHA
+
+No se requiere rediseño completo para iniciar esta evolución; puede implementarse de forma incremental sobre v2.
+
+---
+
 ## Servicio de Alertas
 
 `alertaService.js` se ejecuta automáticamente al final de cada scraping.
@@ -518,6 +592,8 @@ Los mismos que v1, extendidos para v2:
 ### v3 — Futuro
 - Importación/exportación masiva
 - Monitoreo automático programado (cron jobs)
+- Reconsulta por niveles: individual, prioritarios y catálogo completo
+- Indicadores de frescura por producto (`última consulta`, `fresco`, `desactualizado`)
 - Notificaciones por canal externo (email, Telegram, etc.)
 - Soporte para más marketplaces
 - Gráficas de evolución de precio por producto

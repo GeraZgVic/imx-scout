@@ -400,7 +400,8 @@ input {
   line-height: 1.65;
 }
 
-.workspace-banner {
+.workspace-banner,
+.dashboard-hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -413,17 +414,57 @@ input {
   border-radius: var(--radius-lg);
 }
 
-.workspace-banner-copy h2 {
+.workspace-banner-copy h2,
+.dashboard-hero-copy h2 {
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin-bottom: 6px;
 }
 
-.workspace-banner-copy p {
+.workspace-banner-copy p,
+.dashboard-hero-copy p {
   font-size: 0.82rem;
   color: var(--text-2);
   max-width: 560px;
+}
+
+.dashboard-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-pill-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.dashboard-pill {
+  min-width: 112px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.dashboard-pill span {
+  display: block;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+}
+
+.dashboard-pill strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
 }
 
 /* ─────────────────────────────────────────────
@@ -591,7 +632,7 @@ input {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 14px;
   align-items: start;
 }
@@ -600,12 +641,6 @@ input {
 .dashboard-secondary {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.dashboard-panels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -627,6 +662,7 @@ input {
 
 .card--main {
   padding-bottom: 16px;
+  min-height: 100%;
 }
 
 .card-header {
@@ -697,6 +733,11 @@ input {
   font-size: 0.75rem;
   color: var(--text-3);
   font-family: 'JetBrains Mono', monospace;
+}
+
+.dashboard-mini-card {
+  background:
+    linear-gradient(180deg, rgba(20, 24, 32, 0.98), rgba(12, 14, 20, 0.98));
 }
 
 /* ─────────────────────────────────────────────
@@ -879,6 +920,21 @@ input {
   text-align: left;
   width: 100%;
   color: var(--text);
+}
+
+.compact-row--actions {
+  gap: 10px;
+  padding: 8px;
+}
+
+.compact-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  text-align: left;
+  width: 100%;
 }
 
 .compact-row:hover {
@@ -1382,6 +1438,15 @@ input {
 
   .actions .btn + .btn {
     margin-left: 0;
+  }
+
+  .compact-row--actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .compact-row--actions .btn {
+    justify-content: center;
   }
 }
 

@@ -118,13 +118,15 @@ function DashboardView({
   productos,
   alertas,
   handleLoadHistorial,
+  handleRecheckProducto,
+  recheckingProductId,
   handleMarkAlertaLeida,
   goToProductos,
   goToAlertas,
 }) {
-  const latestProducts = productos.slice(0, 4);
   const latestAlerts = alertas.slice(0, 2);
-  const primaryProduct = latestProducts[0] || null;
+  const latestProducts = productos.slice(0, 3);
+  const totalProcesados = estado.activo ? `${estado.procesados}/${estado.total}` : "Listo";
 
   return (
     <div className="view">
@@ -136,36 +138,35 @@ function DashboardView({
         onAction={goToProductos}
       />
 
-      <div className="workspace-banner">
-        <div className="workspace-banner-copy">
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-copy">
           <span className="label">Sistema</span>
           <h2>{estado.activo ? "Scraping en curso" : "Sistema listo para correr"}</h2>
           <p>
             {estado.activo
-              ? `Procesados ${estado.procesados} de ${estado.total} elementos.`
+              ? `Procesados ${estado.procesados} de ${estado.total} elementos en esta corrida.`
               : "Backend, scrapers y persistencia listos para una nueva ejecucion local."}
           </p>
+          <div className="dashboard-pill-row">
+            <div className="dashboard-pill">
+              <span>Productos</span>
+              <strong>{productos.length}</strong>
+            </div>
+            <div className="dashboard-pill">
+              <span>Alertas</span>
+              <strong>{alertas.length}</strong>
+            </div>
+            <div className="dashboard-pill">
+              <span>Estado</span>
+              <strong>{totalProcesados}</strong>
+            </div>
+          </div>
         </div>
         <div className={`live-badge ${estado.activo ? "live-badge--active" : ""}`}>
           <span className="live-dot" />
           {estado.activo ? "Activo" : "Disponible"}
         </div>
-      </div>
-
-      <div className="metrics-row">
-        <StatCard label="Productos" value={productos.length} sub="registrados en base" />
-        <StatCard label="Alertas" value={alertas.length} sub="pendientes por revisar" />
-        <StatCard
-          label="Procesados"
-          value={estado.procesados}
-          sub={estado.activo ? `de ${estado.total} en esta corrida` : "sin ejecucion activa"}
-        />
-        <StatCard
-          label="Ultima corrida"
-          value={lastRun ? `${lastRun.exitosos}/${lastRun.total}` : "—"}
-          sub={lastRun ? `${lastRun.errores} error(es)` : "sin historial de sesion"}
-        />
-      </div>
+      </section>
 
       <div className="dashboard-grid">
         <div className="dashboard-primary">
@@ -198,129 +199,111 @@ function DashboardView({
               </div>
             </form>
           </div>
-
-          <div className="dashboard-panels">
-            <div className="card">
-              <div className="card-header">
-                <div>
-                  <span className="label">Ultima corrida</span>
-                  <h2>Resumen inmediato</h2>
-                </div>
-              </div>
-              {!lastRun ? (
-                <p className="empty">Todavia no ejecutas una corrida en esta sesion.</p>
-              ) : (
-                <div className="result-list">
-                  {lastRun.resultados.slice(0, 3).map((item) => (
-                    <div key={`${item.url}-${item.timestamp}`} className="result-row">
-                      <div className="result-info">
-                        <strong>{item.nombre || item.url}</strong>
-                        <span>{item.plataforma}</span>
-                        <span>
-                          {item.precio || "Sin precio"} ·{" "}
-                          {item.tiempo_entrega || "Sin tiempo de entrega"}
-                        </span>
-                        <span>Destino: {inferDestino(item.destino_consultado, item.tiempo_entrega)}</span>
-                      </div>
-                      <span className={`badge badge--${item.status}`}>{item.status}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <div>
-                  <span className="label">Urgente</span>
-                  <h2>Alertas recientes</h2>
-                </div>
-                <button className="btn btn--ghost btn--xs" type="button" onClick={goToAlertas}>
-                  Ver todas
-                </button>
-              </div>
-              {latestAlerts.length === 0 ? (
-                <p className="empty">Sin alertas pendientes.</p>
-              ) : (
-                <div className="alert-list">
-                  {latestAlerts.map((a) => (
-                    <div className="alert-row" key={a.id}>
-                      <div className="alert-row-head">
-                        <strong>{a.tipo.replace("_", " ")}</strong>
-                        <button
-                          className="btn btn--ghost btn--xs"
-                          type="button"
-                          onClick={() => handleMarkAlertaLeida(a.id)}
-                        >
-                          Leida
-                        </button>
-                      </div>
-                      <span className="alert-product">
-                        {a.producto?.nombre || `Producto ${a.productoId}`}
-                      </span>
-                      <span className="alert-delta">
-                        {a.valor_anterior} → {a.valor_nuevo}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         <div className="dashboard-secondary">
-          <div className="card-header">
-            <div>
-              <span className="label">Contexto</span>
-              <h2>Espacio de trabajo</h2>
-            </div>
-          </div>
           <div className="card">
             <div className="card-header">
-              <span className="label">Inventario</span>
-              <h2>Producto foco</h2>
+              <div>
+                <span className="label">Ultima corrida</span>
+                <h2>Resumen inmediato</h2>
+              </div>
             </div>
-            {!primaryProduct ? (
-              <p className="empty">Sin productos registrados.</p>
+            {!lastRun ? (
+              <p className="empty">Todavia no ejecutas una corrida en esta sesion.</p>
             ) : (
-              <div className="focus-card">
-                <strong>{primaryProduct.nombre || primaryProduct.asin || `Producto ${primaryProduct.id}`}</strong>
-                <span>{primaryProduct.plataforma}</span>
-                <small>{primaryProduct.url}</small>
-                <button
-                  className="btn btn--ghost btn--xs"
-                  type="button"
-                  onClick={() => handleLoadHistorial(primaryProduct)}
-                >
-                  Abrir historial
-                </button>
+              <div className="result-list">
+                {lastRun.resultados.slice(0, 3).map((item) => (
+                  <div key={`${item.url}-${item.timestamp}`} className="result-row">
+                    <div className="result-info">
+                      <strong>{item.nombre || item.url}</strong>
+                      <span>{item.plataforma}</span>
+                      <span>
+                        {item.precio || "Sin precio"} · {item.tiempo_entrega || "Sin tiempo de entrega"}
+                      </span>
+                      <span>Destino: {inferDestino(item.destino_consultado, item.tiempo_entrega)}</span>
+                    </div>
+                    <span className={`badge badge--${item.status}`}>{item.status}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
           <div className="card">
             <div className="card-header">
-              <span className="label">Recientes</span>
-              <h2>Productos nuevos</h2>
+              <div>
+                <span className="label">Urgente</span>
+                <h2>Alertas recientes</h2>
+              </div>
+              <button className="btn btn--ghost btn--xs" type="button" onClick={goToAlertas}>
+                Ver todas
+              </button>
+            </div>
+            {latestAlerts.length === 0 ? (
+              <p className="empty">Sin alertas pendientes.</p>
+            ) : (
+              <div className="alert-list">
+                {latestAlerts.map((a) => (
+                  <div className="alert-row" key={a.id}>
+                    <div className="alert-row-head">
+                      <strong>{a.tipo.replace("_", " ")}</strong>
+                      <button
+                        className="btn btn--ghost btn--xs"
+                        type="button"
+                        onClick={() => handleMarkAlertaLeida(a.id)}
+                      >
+                        Leida
+                      </button>
+                    </div>
+                    <span className="alert-product">
+                      {a.producto?.nombre || `Producto ${a.productoId}`}
+                    </span>
+                    <span className="alert-delta">
+                      {a.valor_anterior} → {a.valor_nuevo}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card dashboard-mini-card">
+            <div className="card-header">
+              <div>
+                <span className="label">Inventario</span>
+                <h2>Productos recientes</h2>
+              </div>
+              <button className="btn btn--ghost btn--xs" type="button" onClick={goToProductos}>
+                Abrir tabla
+              </button>
             </div>
             {latestProducts.length === 0 ? (
               <p className="empty">Sin productos aun.</p>
             ) : (
               <div className="compact-list">
                 {latestProducts.map((p) => (
-                  <button
-                    className="compact-row"
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleLoadHistorial(p)}
-                  >
-                    <div>
-                      <strong>{p.nombre || p.asin || `Producto ${p.id}`}</strong>
-                      <span>{p.plataforma}</span>
-                    </div>
-                    <span className="arrow">›</span>
-                  </button>
+                  <div className="compact-row compact-row--actions" key={p.id}>
+                    <button
+                      className="compact-row-main"
+                      type="button"
+                      onClick={() => handleLoadHistorial(p)}
+                    >
+                      <div>
+                        <strong>{p.nombre || p.asin || `Producto ${p.id}`}</strong>
+                        <span>{p.plataforma}</span>
+                      </div>
+                      <span className="arrow">›</span>
+                    </button>
+                    <button
+                      className="btn btn--ghost btn--xs"
+                      type="button"
+                      disabled={recheckingProductId === p.id}
+                      onClick={() => handleRecheckProducto(p)}
+                    >
+                      {recheckingProductId === p.id ? "Consultando..." : "Reconsultar"}
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -338,6 +321,8 @@ function ProductosView({
   loading,
   productos,
   handleLoadHistorial,
+  handleRecheckProducto,
+  recheckingProductId,
   handleDeleteProducto,
   goToDashboard,
 }) {
@@ -388,6 +373,14 @@ function ProductosView({
                     <td>{p.asin || "—"}</td>
                     <td>{formatDate(p.updatedAt)}</td>
                     <td className="actions">
+                      <button
+                        className="btn btn--primary btn--xs"
+                        type="button"
+                        disabled={recheckingProductId === p.id}
+                        onClick={() => handleRecheckProducto(p)}
+                      >
+                        {recheckingProductId === p.id ? "Consultando..." : "Reconsultar"}
+                      </button>
                       <button
                         className="btn btn--ghost btn--xs"
                         type="button"
@@ -571,6 +564,7 @@ export default function App() {
   const [lastRun, setLastRun] = useState(null);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
+  const [recheckingProductId, setRecheckingProductId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -614,6 +608,32 @@ export default function App() {
     };
   }, []);
 
+  async function runScrapingEntries(entries, options = {}) {
+    const { resetInput = false, productToRefresh = null, targetView = "dashboard" } = options;
+
+    if (!entries.length) {
+      throw new Error("Agrega al menos una URL o ASIN.");
+    }
+
+    const result = await api("/api/scraping/ejecutar", {
+      method: "POST",
+      body: JSON.stringify({ entries }),
+    });
+
+    setLastRun(result);
+    if (resetInput) setEntriesText("");
+    await loadDashboard();
+
+    if (productToRefresh) {
+      const refreshedHistory = await api(`/api/productos/${productToRefresh.id}/historial`);
+      setHistorialProducto(productToRefresh);
+      setHistorial(getItems(refreshedHistory));
+    }
+
+    setActiveView(targetView);
+    return result;
+  }
+
   async function handleRunScraping(e) {
     e.preventDefault();
     const entries = splitEntries(entriesText);
@@ -624,18 +644,26 @@ export default function App() {
     try {
       setExecuting(true);
       setError("");
-      const result = await api("/api/scraping/ejecutar", {
-        method: "POST",
-        body: JSON.stringify({ entries }),
-      });
-      setLastRun(result);
-      setEntriesText("");
-      await loadDashboard();
-      setActiveView("dashboard");
+      await runScrapingEntries(entries, { resetInput: true, targetView: "dashboard" });
     } catch (err) {
       setError(err.message);
     } finally {
       setExecuting(false);
+    }
+  }
+
+  async function handleRecheckProducto(producto) {
+    try {
+      setRecheckingProductId(producto.id);
+      setError("");
+      await runScrapingEntries([producto.url], {
+        productToRefresh: historialProducto?.id === producto.id ? producto : null,
+        targetView: activeView,
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRecheckingProductId(null);
     }
   }
 
@@ -759,6 +787,8 @@ export default function App() {
               productos={productos}
               alertas={alertas}
               handleLoadHistorial={handleLoadHistorial}
+              handleRecheckProducto={handleRecheckProducto}
+              recheckingProductId={recheckingProductId}
               handleMarkAlertaLeida={handleMarkAlertaLeida}
               goToProductos={() => setActiveView("productos")}
               goToAlertas={() => setActiveView("alertas")}
@@ -769,6 +799,8 @@ export default function App() {
               loading={loading}
               productos={productos}
               handleLoadHistorial={handleLoadHistorial}
+              handleRecheckProducto={handleRecheckProducto}
+              recheckingProductId={recheckingProductId}
               handleDeleteProducto={handleDeleteProducto}
               goToDashboard={() => setActiveView("dashboard")}
             />
@@ -784,13 +816,15 @@ export default function App() {
         </main>
       </div>
 
-      <HistorialDrawer
-        historialProducto={historialProducto}
-        historial={historial}
-        historyLoading={historyLoading}
-        setHistorialProducto={setHistorialProducto}
-        setHistorial={setHistorial}
-      />
+      {activeView === "productos" && (
+        <HistorialDrawer
+          historialProducto={historialProducto}
+          historial={historial}
+          historyLoading={historyLoading}
+          setHistorialProducto={setHistorialProducto}
+          setHistorial={setHistorial}
+        />
+      )}
     </div>
   );
 }
