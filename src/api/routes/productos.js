@@ -45,9 +45,22 @@ router.get("/", async (_req, res, next) => {
   try {
     const productos = await prisma.producto.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        registros: {
+          orderBy: { timestamp: "desc" },
+          take: 1,
+          select: { timestamp: true, status: true },
+        },
+      },
     });
 
-    return res.json({ items: productos });
+    return res.json({
+      items: productos.map((producto) => ({
+        ...producto,
+        ultimoRegistro: producto.registros[0] || null,
+        registros: undefined,
+      })),
+    });
   } catch (error) {
     return next(error);
   }
@@ -73,6 +86,33 @@ router.post("/", async (req, res, next) => {
   } catch (error) {
     if (error.code === "P2002") {
       return res.status(409).json({ error: "Ya existe un producto registrado con esa URL." });
+    }
+
+    return next(error);
+  }
+});
+
+router.patch("/:id", async (req, res, next) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "El id debe ser un entero positivo." });
+  }
+
+  if (typeof req.body?.prioritario !== "boolean") {
+    return res.status(400).json({ error: "Se requiere req.body.prioritario como boolean." });
+  }
+
+  try {
+    const producto = await prisma.producto.update({
+      where: { id },
+      data: { prioritario: req.body.prioritario },
+    });
+
+    return res.json(producto);
+  } catch (error) {
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Producto no encontrado." });
     }
 
     return next(error);

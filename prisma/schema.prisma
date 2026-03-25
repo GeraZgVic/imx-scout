@@ -36,6 +36,7 @@ model Producto {
   plataforma Plataforma
   nombre     String?    @db.VarChar(512)
   activo     Boolean    @default(true)
+  prioritario Boolean   @default(false)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
