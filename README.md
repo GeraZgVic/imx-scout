@@ -110,6 +110,42 @@ URLs locales:
 - API: `http://localhost:3000`
 - UI: `http://localhost:5173`
 
+## Despliegue En Servidor Con Traefik
+
+Para servidores con una red externa de Traefik como `cscart_production_net`, el proyecto incluye:
+
+- `docker-compose.server.yml`
+- `.env.server.example`
+
+Flujo sugerido:
+
+1. Copia el proyecto a una ruta como `/srv/imx-scout`
+2. Crea un archivo `.env.server` a partir de `.env.server.example`
+3. Ajusta:
+   - `IMXSCOUT_HOST`
+   - `IMXSCOUT_DB_PASSWORD`
+   - `IMXSCOUT_DB_ROOT_PASSWORD`
+4. Levanta el stack:
+
+```bash
+docker compose --env-file .env.server -f docker-compose.server.yml up --build -d
+```
+
+5. Revisa estado y logs:
+
+```bash
+docker compose --env-file .env.server -f docker-compose.server.yml ps
+docker compose --env-file .env.server -f docker-compose.server.yml logs -f imxscout-app
+```
+
+Notas:
+
+- la app publica su tráfico por Traefik, no por puertos directos
+- el contenedor app expone internamente el puerto `3000`
+- la base queda aislada en la red interna `imxscout_internal`
+- el servicio responde `GET /healthz` para healthchecks
+- el arranque ejecuta `npx prisma migrate deploy`
+
 ## Estructura Del Proyecto
 
 ```text
@@ -146,6 +182,10 @@ imx-scout/
 │   │       └── styles.css
 │   └── server.js
 ├── .env.example
+├── .env.server.example
+├── .dockerignore
+├── Dockerfile
+├── docker-compose.server.yml
 ├── vite.config.js
 ├── package.json
 └── README.md

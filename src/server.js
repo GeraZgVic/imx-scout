@@ -34,6 +34,10 @@ app.use((req, _res, next) => {
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
 app.use("/api/productos", productosRoutes);
 app.use("/api/scraping",  scrapingRoutes);
 app.use("/api/alertas",   alertasRoutes);

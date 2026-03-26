@@ -1,0 +1,66 @@
+services:
+  imxscout-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: imxscout-app
+    restart: unless-stopped
+    depends_on:
+      imxscout-db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: mysql://imx:${IMXSCOUT_DB_PASSWORD}@imxscout-db:3306/imxscout
+      LOG_LEVEL: info
+      MAX_CONCURRENT_SCRAPERS: ${MAX_CONCURRENT_SCRAPERS:-2}
+      MAX_URLS_PER_REQUEST: ${MAX_URLS_PER_REQUEST:-50}
+      SCRAPER_TIMEOUT_MS: ${SCRAPER_TIMEOUT_MS:-30000}
+      TZ: ${TZ:-UTC}
+    networks:
+      - cscart_production_net
+      - imxscout_internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=cscart_production_net
+      - traefik.http.services.imxscout.loadbalancer.server.port=3000
+      - traefik.http.routers.imxscout.rule=Host(`${IMXSCOUT_HOST}`)
+      - traefik.http.routers.imxscout.tls=true
+      - traefik.http.routers.imxscout.tls.certresolver=le
+      - traefik.http.routers.imxscout-http.rule=Host(`${IMXSCOUT_HOST}`)
+      - traefik.http.routers.imxscout-http.entrypoints=web
+      - traefik.http.routers.imxscout-http.middlewares=imxscout-redirect-https
+      - traefik.http.middlewares.imxscout-redirect-https.redirectscheme.scheme=https
+
+  imxscout-db:
+    image: mysql:8.0
+    container_name: imxscout-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: imxscout
+      MYSQL_USER: imx
+      MYSQL_PASSWORD: ${IMXSCOUT_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${IMXSCOUT_DB_ROOT_PASSWORD}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - imxscout_mysql_data:/var/lib/mysql
+    networks:
+      - imxscout_internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${IMXSCOUT_DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+networks:
+  cscart_production_net:
+    external: true
+  imxscout_internal:
+
+volumes:
+  imxscout_mysql_data:
