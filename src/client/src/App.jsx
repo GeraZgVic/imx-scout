@@ -1,12 +1,33 @@
 import React, { startTransition, useEffect, useState } from "react";
+import {
+  AlertCircle,
+  BellDot,
+  Boxes,
+  CircleCheckBig,
+  Clock3,
+  Eye,
+  History,
+  LayoutDashboard,
+  LoaderCircle,
+  Menu,
+  PackageSearch,
+  PanelLeftClose,
+  PanelLeftOpen,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Star,
+  TriangleAlert,
+  Trash2,
+} from "lucide-react";
 import "./styles.css";
 
 const EMPTY_STATUS = { activo: false, inicio: null, total: 0, procesados: 0, errores: 0 };
 const EMPTY_COLLECTION = [];
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: "⬡" },
-  { id: "productos", label: "Productos", icon: "◈" },
-  { id: "alertas", label: "Alertas", icon: "◎" },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "productos", label: "Productos", icon: Boxes },
+  { id: "alertas", label: "Alertas", icon: AlertCircle },
 ];
 
 const VIEW_META = {
@@ -226,6 +247,33 @@ function StatCard({ label, value, sub }) {
   );
 }
 
+function DashboardActionButton({ icon: Icon, label, ...props }) {
+  return (
+    <button {...props}>
+      <Icon size={14} strokeWidth={2} />
+      {label}
+    </button>
+  );
+}
+
+function ReviewStateBadge({ value }) {
+  const meta = getReviewStateMeta(value);
+  const Icon = meta.label === "Al dia"
+    ? CircleCheckBig
+    : meta.label === "Por revisar"
+      ? Clock3
+      : meta.label === "Atrasado"
+        ? TriangleAlert
+        : AlertCircle;
+
+  return (
+    <span className={`badge badge--${meta.tone}`}>
+      <Icon size={12} strokeWidth={2.2} />
+      {meta.label}
+    </span>
+  );
+}
+
 /* ─────────────────────────────────────────────
    DASHBOARD VIEW
 ───────────────────────────────────────────── */
@@ -247,7 +295,21 @@ function DashboardView({
 }) {
   const latestAlerts = alertas.slice(0, 2);
   const latestProducts = productos.slice(0, 3);
+  const prioritizedProducts = productos.filter((producto) => producto.prioritario).slice(0, 3);
+  const delayedProducts = productos
+    .filter((producto) => getReviewStateMeta(producto.ultimoRegistro?.timestamp).label === "Atrasado")
+    .slice(0, 3);
+  const reviewSoonProducts = productos
+    .filter((producto) => getReviewStateMeta(producto.ultimoRegistro?.timestamp).label === "Por revisar")
+    .slice(0, 3);
   const totalProcesados = estado.activo ? `${estado.procesados}/${estado.total}` : "Listo";
+  const prioritizedCount = productos.filter((producto) => producto.prioritario).length;
+  const delayedCount = productos.filter(
+    (producto) => getReviewStateMeta(producto.ultimoRegistro?.timestamp).label === "Atrasado"
+  ).length;
+  const reviewSoonCount = productos.filter(
+    (producto) => getReviewStateMeta(producto.ultimoRegistro?.timestamp).label === "Por revisar"
+  ).length;
 
   return (
     <div className="view">
@@ -280,6 +342,11 @@ function DashboardView({
             <div className="dashboard-pill">
               <span>Estado</span>
               <strong>{totalProcesados}</strong>
+            </div>
+            <div className="dashboard-pill">
+              <Star size={14} strokeWidth={2} />
+              <span>Prioritarios</span>
+              <strong>{prioritizedCount}</strong>
             </div>
           </div>
         </div>
@@ -323,6 +390,42 @@ function DashboardView({
         </div>
 
         <div className="dashboard-secondary">
+          <div className="card dashboard-mini-card">
+            <div className="card-header">
+              <div>
+                <span className="label">Seguimiento</span>
+                <h2>Resumen operativo</h2>
+              </div>
+              <DashboardActionButton
+                className="btn btn--ghost btn--xs"
+                type="button"
+                onClick={goToProductos}
+                icon={Eye}
+                label="Ver inventario"
+              />
+            </div>
+            <div className="dashboard-status-grid">
+              <div className="status-metric">
+                <Star size={16} strokeWidth={2} />
+                <span>Prioritarios</span>
+                <strong>{prioritizedCount}</strong>
+                <small>productos marcados para seguimiento rapido</small>
+              </div>
+              <div className="status-metric">
+                <TriangleAlert size={16} strokeWidth={2} />
+                <span>Atrasados</span>
+                <strong>{delayedCount}</strong>
+                <small>requieren una consulta cuanto antes</small>
+              </div>
+              <div className="status-metric">
+                <Clock3 size={16} strokeWidth={2} />
+                <span>Por revisar</span>
+                <strong>{reviewSoonCount}</strong>
+                <small>conviene revisarlos pronto</small>
+              </div>
+            </div>
+          </div>
+
           <div className="card">
             <div className="card-header">
               <div>
@@ -344,7 +447,10 @@ function DashboardView({
                       </span>
                       <span>Destino: {inferDestino(item.destino_consultado, item.tiempo_entrega)}</span>
                     </div>
-                    <span className={`badge badge--${item.status}`}>{item.status}</span>
+                    <span className={`badge badge--${item.status}`}>
+                      {item.status === "ok" ? <CircleCheckBig size={12} strokeWidth={2.2} /> : <ShieldAlert size={12} strokeWidth={2.2} />}
+                      {item.status}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -357,9 +463,13 @@ function DashboardView({
                 <span className="label">Urgente</span>
                 <h2>Alertas recientes</h2>
               </div>
-              <button className="btn btn--ghost btn--xs" type="button" onClick={goToAlertas}>
-                Ver todas
-              </button>
+              <DashboardActionButton
+                className="btn btn--ghost btn--xs"
+                type="button"
+                onClick={goToAlertas}
+                icon={BellDot}
+                label="Ver todas"
+              />
             </div>
             {latestAlerts.length === 0 ? (
               <p className="empty">Sin alertas pendientes.</p>
@@ -374,6 +484,7 @@ function DashboardView({
                         type="button"
                         onClick={() => handleMarkAlertaLeida(a.id)}
                       >
+                        <CircleCheckBig size={12} strokeWidth={2.2} />
                         Leida
                       </button>
                     </div>
@@ -392,18 +503,22 @@ function DashboardView({
           <div className="card dashboard-mini-card">
             <div className="card-header">
               <div>
-                <span className="label">Inventario</span>
-                <h2>Productos recientes</h2>
+                <span className="label">Prioridad</span>
+                <h2>Prioritarios</h2>
               </div>
-              <button className="btn btn--ghost btn--xs" type="button" onClick={goToProductos}>
-                Abrir tabla
-              </button>
+              <DashboardActionButton
+                className="btn btn--ghost btn--xs"
+                type="button"
+                onClick={goToProductos}
+                icon={History}
+                label="Abrir tabla"
+              />
             </div>
-            {latestProducts.length === 0 ? (
-              <p className="empty">Sin productos aun.</p>
+            {prioritizedProducts.length === 0 ? (
+              <p className="empty">Sin productos prioritarios todavia.</p>
             ) : (
               <div className="compact-list">
-                {latestProducts.map((p) => (
+                {prioritizedProducts.map((p) => (
                   <div className="compact-row compact-row--actions" key={p.id}>
                     <button
                       className="compact-row-main"
@@ -422,10 +537,89 @@ function DashboardView({
                       disabled={recheckingProductId === p.id}
                       onClick={() => handleRecheckProducto(p)}
                     >
+                      <RefreshCw size={12} strokeWidth={2.2} />
                       {recheckingProductId === p.id ? "Consultando..." : "Reconsultar"}
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <span className="label">Pendientes</span>
+                <h2>Revision operativa</h2>
+              </div>
+            </div>
+            {delayedProducts.length === 0 && reviewSoonProducts.length === 0 ? (
+              <p className="empty">No hay productos atrasados o por revisar.</p>
+            ) : (
+              <div className="dashboard-review-stack">
+                {delayedProducts.length > 0 && (
+                  <div>
+                    <span className="label">Atrasados</span>
+                    <div className="compact-list">
+                      {delayedProducts.map((p) => (
+                        <div className="compact-row compact-row--actions" key={p.id}>
+                          <button
+                            className="compact-row-main"
+                            type="button"
+                            onClick={() => handleLoadHistorial(p)}
+                          >
+                            <div>
+                              <strong>{p.nombre || p.asin || `Producto ${p.id}`}</strong>
+                              <span>{formatDate(p.ultimoRegistro?.timestamp)}</span>
+                            </div>
+                            <span className="arrow">›</span>
+                          </button>
+                          <button
+                            className="btn btn--ghost btn--xs"
+                            type="button"
+                            disabled={recheckingProductId === p.id}
+                            onClick={() => handleRecheckProducto(p)}
+                          >
+                            <RefreshCw size={12} strokeWidth={2.2} />
+                            {recheckingProductId === p.id ? "Consultando..." : "Reconsultar"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {reviewSoonProducts.length > 0 && (
+                  <div>
+                    <span className="label">Por revisar</span>
+                    <div className="compact-list">
+                      {reviewSoonProducts.map((p) => (
+                        <div className="compact-row compact-row--actions" key={p.id}>
+                          <button
+                            className="compact-row-main"
+                            type="button"
+                            onClick={() => handleLoadHistorial(p)}
+                          >
+                            <div>
+                              <strong>{p.nombre || p.asin || `Producto ${p.id}`}</strong>
+                              <span>{formatDate(p.ultimoRegistro?.timestamp)}</span>
+                            </div>
+                            <span className="arrow">›</span>
+                          </button>
+                          <button
+                            className="btn btn--ghost btn--xs"
+                            type="button"
+                            disabled={recheckingProductId === p.id}
+                            onClick={() => handleRecheckProducto(p)}
+                          >
+                            <RefreshCw size={12} strokeWidth={2.2} />
+                            {recheckingProductId === p.id ? "Consultando..." : "Reconsultar"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -518,13 +712,16 @@ function ProductosView({
         ) : (
           <>
             <div className="filters-bar">
-              <input
-                className="filter-input"
-                type="text"
-                value={searchTerm}
-                placeholder="Buscar por nombre, ASIN o URL"
-                onChange={(e) => onFiltersChange({ search: e.target.value })}
-              />
+              <div className="filter-input-wrap">
+                <Search size={16} strokeWidth={2} />
+                <input
+                  className="filter-input"
+                  type="text"
+                  value={searchTerm}
+                  placeholder="Buscar por nombre, ASIN o URL"
+                  onChange={(e) => onFiltersChange({ search: e.target.value })}
+                />
+              </div>
               <select
                 className="filter-select"
                 value={priorityFilter}
@@ -583,6 +780,7 @@ function ProductosView({
                         disabled={togglingPriorityId === p.id}
                         onClick={() => handleTogglePrioridad(p)}
                       >
+                        <Star size={12} strokeWidth={2.2} />
                         {togglingPriorityId === p.id
                           ? "Guardando..."
                           : p.prioritario
@@ -598,9 +796,7 @@ function ProductosView({
                     <td>{p.plataforma}</td>
                     <td>{p.asin || "—"}</td>
                     <td>
-                      <span className={`badge badge--${getReviewStateMeta(p.ultimoRegistro?.timestamp).tone}`}>
-                        {getReviewStateMeta(p.ultimoRegistro?.timestamp).label}
-                      </span>
+                      <ReviewStateBadge value={p.ultimoRegistro?.timestamp} />
                       <span className="table-subtle">
                         {getReviewStateMeta(p.ultimoRegistro?.timestamp).detail}
                       </span>
@@ -613,6 +809,7 @@ function ProductosView({
                         disabled={recheckingProductId === p.id}
                         onClick={() => handleRecheckProducto(p)}
                       >
+                        <RefreshCw size={12} strokeWidth={2.2} />
                         {recheckingProductId === p.id ? "Consultando..." : "Reconsultar"}
                       </button>
                       <button
@@ -620,6 +817,7 @@ function ProductosView({
                         type="button"
                         onClick={() => handleLoadHistorial(p)}
                       >
+                        <History size={12} strokeWidth={2.2} />
                         Historial
                       </button>
                       <button
@@ -627,6 +825,7 @@ function ProductosView({
                         type="button"
                         onClick={() => handleDeleteProducto(p.id)}
                       >
+                        <Trash2 size={12} strokeWidth={2.2} />
                         Eliminar
                       </button>
                     </td>
@@ -772,12 +971,12 @@ function HistorialDrawer({
 
       {historyLoading ? (
         <div className="drawer-empty">
-          <div className="drawer-empty-icon">⟳</div>
+          <div className="drawer-empty-icon"><LoaderCircle size={22} /></div>
           <p>Cargando registros…</p>
         </div>
       ) : !historialProducto ? (
         <div className="drawer-empty">
-          <div className="drawer-empty-icon">◈</div>
+          <div className="drawer-empty-icon"><PackageSearch size={22} /></div>
           <p>Sin producto seleccionado</p>
           <span className="drawer-empty-hint">
             Haz clic en "Historial" desde la tabla de productos para ver sus registros aquí.
@@ -785,7 +984,7 @@ function HistorialDrawer({
         </div>
       ) : historial.length === 0 ? (
         <div className="drawer-empty">
-          <div className="drawer-empty-icon">○</div>
+          <div className="drawer-empty-icon"><AlertCircle size={22} /></div>
           <p>Sin registros aún para este producto.</p>
         </div>
       ) : (
@@ -860,6 +1059,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [priorityNotice, setPriorityNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   function navigateToView(view, options = {}) {
     const {
@@ -1127,13 +1327,13 @@ export default function App() {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${sidebarCollapsed ? "shell--sidebar-collapsed" : ""}`}>
       {sidebarOpen && <div className="overlay" onClick={() => setSidebarOpen(false)} />}
 
-      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
+      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""} ${sidebarCollapsed ? "sidebar--collapsed" : ""}`}>
         <div className="brand">
-          <span className="brand-icon">◈</span>
-          <div>
+          <span className="brand-icon"><PackageSearch size={20} /></span>
+          <div className="brand-copy">
             <strong>IMX Scout</strong>
             <span>Price Intelligence</span>
           </div>
@@ -1149,8 +1349,8 @@ export default function App() {
               }}
               type="button"
             >
-              <span className="nav-icon">{item.icon}</span>
-              {item.label}
+              <span className="nav-icon"><item.icon size={18} strokeWidth={2} /></span>
+              <span className="nav-label">{item.label}</span>
               {item.id === "alertas" && alertas.length > 0 && (
                 <span className="nav-badge">{alertas.length}</span>
               )}
@@ -1167,79 +1367,95 @@ export default function App() {
 
       <div className="body">
         <header className="topbar">
-          <button
-            className="menu-btn"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            type="button"
-            aria-label="Menú"
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-          <div className="topbar-left">
-            <span className="label">Workspace</span>
-            <h1>{NAV_ITEMS.find((i) => i.id === activeView)?.label}</h1>
-          </div>
-          <div className="topbar-right">
-            <div className="chip">
-              <strong>{productos.length}</strong>
-              <span>productos</span>
+          <div className="topbar-inner">
+            <div className="topbar-left-group">
+              <button
+                className="menu-btn"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                type="button"
+                aria-label="Menú"
+              >
+                <Menu size={18} />
+              </button>
+              <button
+                className="sidebar-toggle-btn"
+                onClick={() => setSidebarCollapsed((current) => !current)}
+                type="button"
+                aria-label={sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </button>
+              <div className="topbar-left">
+                <span className="label">Workspace</span>
+                <h1>{NAV_ITEMS.find((i) => i.id === activeView)?.label}</h1>
+              </div>
             </div>
-            <div className="chip">
-              <strong>{alertas.length}</strong>
-              <span>alertas</span>
+            <div className="topbar-right">
+              <div className="chip">
+                <strong>{productos.length}</strong>
+                <span>productos</span>
+              </div>
+              <div className="chip">
+                <strong>{alertas.length}</strong>
+                <span>alertas</span>
+              </div>
             </div>
           </div>
         </header>
 
-        {error && <div className="error-banner">{error}</div>}
+        {error && (
+          <div className="error-banner-wrap">
+            <div className="error-banner">{error}</div>
+          </div>
+        )}
 
         <main className="content">
-          {activeView === "dashboard" && (
-            <DashboardView
-              estado={estado}
-              lastRun={lastRun}
-              entriesText={entriesText}
-              executing={executing}
-              setEntriesText={setEntriesText}
-              handleRunScraping={handleRunScraping}
-              productos={productos}
-              alertas={alertas}
-              handleLoadHistorial={handleLoadHistorial}
-              handleRecheckProducto={handleRecheckProducto}
-              recheckingProductId={recheckingProductId}
-              handleMarkAlertaLeida={handleMarkAlertaLeida}
-              goToProductos={() => navigateToView("productos")}
-              goToAlertas={() => navigateToView("alertas")}
-            />
-          )}
-          {activeView === "productos" && (
-            <ProductosView
-              loading={loading}
-              productos={productos}
-              routeFilters={routeFilters}
-              onFiltersChange={handleProductosFiltersChange}
-              handleLoadHistorial={handleLoadHistorial}
-              handleRecheckProducto={handleRecheckProducto}
-              handleRecheckPrioritarios={handleRecheckPrioritarios}
-              recheckingPrioritarios={recheckingPrioritarios}
-              recheckingProductId={recheckingProductId}
-              handleTogglePrioridad={handleTogglePrioridad}
-              togglingPriorityId={togglingPriorityId}
-              handleDeleteProducto={handleDeleteProducto}
-              priorityNotice={priorityNotice}
-              goToDashboard={() => navigateToView("dashboard")}
-            />
-          )}
-          {activeView === "alertas" && (
-            <AlertasView
-              loading={loading}
-              alertas={alertas}
-              handleMarkAlertaLeida={handleMarkAlertaLeida}
-              goToDashboard={() => navigateToView("dashboard")}
-            />
-          )}
+          <div className="content-inner">
+            {activeView === "dashboard" && (
+              <DashboardView
+                estado={estado}
+                lastRun={lastRun}
+                entriesText={entriesText}
+                executing={executing}
+                setEntriesText={setEntriesText}
+                handleRunScraping={handleRunScraping}
+                productos={productos}
+                alertas={alertas}
+                handleLoadHistorial={handleLoadHistorial}
+                handleRecheckProducto={handleRecheckProducto}
+                recheckingProductId={recheckingProductId}
+                handleMarkAlertaLeida={handleMarkAlertaLeida}
+                goToProductos={() => navigateToView("productos")}
+                goToAlertas={() => navigateToView("alertas")}
+              />
+            )}
+            {activeView === "productos" && (
+              <ProductosView
+                loading={loading}
+                productos={productos}
+                routeFilters={routeFilters}
+                onFiltersChange={handleProductosFiltersChange}
+                handleLoadHistorial={handleLoadHistorial}
+                handleRecheckProducto={handleRecheckProducto}
+                handleRecheckPrioritarios={handleRecheckPrioritarios}
+                recheckingPrioritarios={recheckingPrioritarios}
+                recheckingProductId={recheckingProductId}
+                handleTogglePrioridad={handleTogglePrioridad}
+                togglingPriorityId={togglingPriorityId}
+                handleDeleteProducto={handleDeleteProducto}
+                priorityNotice={priorityNotice}
+                goToDashboard={() => navigateToView("dashboard")}
+              />
+            )}
+            {activeView === "alertas" && (
+              <AlertasView
+                loading={loading}
+                alertas={alertas}
+                handleMarkAlertaLeida={handleMarkAlertaLeida}
+                goToDashboard={() => navigateToView("dashboard")}
+              />
+            )}
+          </div>
         </main>
       </div>
 
