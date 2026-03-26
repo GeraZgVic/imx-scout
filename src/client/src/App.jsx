@@ -24,6 +24,12 @@ import "./styles.css";
 
 const EMPTY_STATUS = { activo: false, inicio: null, total: 0, procesados: 0, errores: 0 };
 const EMPTY_COLLECTION = [];
+const DEFAULT_PRODUCT_FILTERS = {
+  search: "",
+  prioridad: "all",
+  estado: "all",
+  plataforma: "all",
+};
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "productos", label: "Productos", icon: Boxes },
@@ -68,10 +74,11 @@ function readRouteFromLocation() {
     view: getViewFromPath(window.location.pathname),
     historialId: Number.isInteger(historialId) && historialId > 0 ? historialId : null,
     filters: {
+      ...DEFAULT_PRODUCT_FILTERS,
       search: params.get("q") || "",
-      prioridad: params.get("prioridad") || "all",
-      estado: params.get("estado") || "all",
-      plataforma: params.get("plataforma") || "all",
+      prioridad: params.get("prioridad") || DEFAULT_PRODUCT_FILTERS.prioridad,
+      estado: params.get("estado") || DEFAULT_PRODUCT_FILTERS.estado,
+      plataforma: params.get("plataforma") || DEFAULT_PRODUCT_FILTERS.plataforma,
     },
   };
 }
@@ -93,6 +100,15 @@ function buildUrl(view, historialId = null, filters = null) {
 
   const query = params.toString();
   return query ? `${pathname}?${query}` : pathname;
+}
+
+function hasActiveProductFilters(filters) {
+  return (
+    filters.search !== DEFAULT_PRODUCT_FILTERS.search ||
+    filters.prioridad !== DEFAULT_PRODUCT_FILTERS.prioridad ||
+    filters.estado !== DEFAULT_PRODUCT_FILTERS.estado ||
+    filters.plataforma !== DEFAULT_PRODUCT_FILTERS.plataforma
+  );
 }
 
 function formatDate(value) {
@@ -291,6 +307,9 @@ function DashboardView({
   recheckingProductId,
   handleMarkAlertaLeida,
   goToProductos,
+  goToPrioritarios,
+  goToDelayed,
+  goToReviewSoon,
   goToAlertas,
 }) {
   const latestAlerts = alertas.slice(0, 2);
@@ -405,24 +424,24 @@ function DashboardView({
               />
             </div>
             <div className="dashboard-status-grid">
-              <div className="status-metric">
+              <button className="status-metric status-metric--interactive" type="button" onClick={goToPrioritarios}>
                 <Star size={16} strokeWidth={2} />
                 <span>Prioritarios</span>
                 <strong>{prioritizedCount}</strong>
                 <small>productos marcados para seguimiento rapido</small>
-              </div>
-              <div className="status-metric">
+              </button>
+              <button className="status-metric status-metric--interactive" type="button" onClick={goToDelayed}>
                 <TriangleAlert size={16} strokeWidth={2} />
                 <span>Atrasados</span>
                 <strong>{delayedCount}</strong>
                 <small>requieren una consulta cuanto antes</small>
-              </div>
-              <div className="status-metric">
+              </button>
+              <button className="status-metric status-metric--interactive" type="button" onClick={goToReviewSoon}>
                 <Clock3 size={16} strokeWidth={2} />
                 <span>Por revisar</span>
                 <strong>{reviewSoonCount}</strong>
                 <small>conviene revisarlos pronto</small>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -509,9 +528,9 @@ function DashboardView({
               <DashboardActionButton
                 className="btn btn--ghost btn--xs"
                 type="button"
-                onClick={goToProductos}
+                onClick={goToPrioritarios}
                 icon={History}
-                label="Abrir tabla"
+                label="Ver todos"
               />
             </div>
             {prioritizedProducts.length === 0 ? (
@@ -552,6 +571,13 @@ function DashboardView({
                 <span className="label">Pendientes</span>
                 <h2>Revision operativa</h2>
               </div>
+              <DashboardActionButton
+                className="btn btn--ghost btn--xs"
+                type="button"
+                onClick={goToDelayed}
+                icon={TriangleAlert}
+                label="Ir a atrasados"
+              />
             </div>
             {delayedProducts.length === 0 && reviewSoonProducts.length === 0 ? (
               <p className="empty">No hay productos atrasados o por revisar.</p>
@@ -647,12 +673,14 @@ function ProductosView({
   handleDeleteProducto,
   priorityNotice,
   goToDashboard,
+  clearFilters,
 }) {
   const searchTerm = routeFilters.search || "";
   const priorityFilter = routeFilters.prioridad || "all";
   const reviewStateFilter = routeFilters.estado || "all";
   const platformFilter = routeFilters.plataforma || "all";
   const prioritizedCount = productos.filter((producto) => producto.prioritario).length;
+  const hasActiveFilters = hasActiveProductFilters(routeFilters);
   const filteredProducts = productos.filter((producto) => {
     const query = searchTerm.trim().toLowerCase();
     const productText = [
@@ -753,6 +781,16 @@ function ProductosView({
               </select>
               <span className="toolbar-pill">{filteredProducts.length} visibles</span>
             </div>
+            {hasActiveFilters && (
+              <div className="filters-summary">
+                <span className="filters-summary-copy">
+                  Vista filtrada activa para enfocar el inventario en un subconjunto operativo.
+                </span>
+                <button className="btn btn--ghost btn--xs" type="button" onClick={clearFilters}>
+                  Ver todo
+                </button>
+              </div>
+            )}
             <div className="table-wrap">
             <table className="table">
               <thead>
@@ -769,11 +807,11 @@ function ProductosView({
               <tbody>
                 {filteredProducts.map((p) => (
                   <tr key={p.id}>
-                    <td>
+                    <td data-label="Producto">
                       <strong>{p.nombre || "Sin nombre"}</strong>
                       <span className="url-cell">{p.url}</span>
                     </td>
-                    <td>
+                    <td data-label="Prioridad">
                       <button
                         className={`priority-toggle ${p.prioritario ? "priority-toggle--active" : ""}`}
                         type="button"
@@ -793,16 +831,16 @@ function ProductosView({
                           : "No entra en lotes prioritarios todavia."}
                       </span>
                     </td>
-                    <td>{p.plataforma}</td>
-                    <td>{p.asin || "—"}</td>
-                    <td>
+                    <td data-label="Plataforma">{p.plataforma}</td>
+                    <td data-label="ASIN">{p.asin || "—"}</td>
+                    <td data-label="Estado">
                       <ReviewStateBadge value={p.ultimoRegistro?.timestamp} />
                       <span className="table-subtle">
                         {getReviewStateMeta(p.ultimoRegistro?.timestamp).detail}
                       </span>
                     </td>
-                    <td>{formatDate(p.ultimoRegistro?.timestamp)}</td>
-                    <td className="actions">
+                    <td data-label="Ultima consulta">{formatDate(p.ultimoRegistro?.timestamp)}</td>
+                    <td className="actions" data-label="Acciones">
                       <button
                         className="btn btn--primary btn--xs"
                         type="button"
@@ -1086,6 +1124,16 @@ export default function App() {
     window.history.pushState({}, "", nextUrl);
   }
 
+  function navigateToProductosWithFilters(partialFilters = {}, options = {}) {
+    navigateToView("productos", {
+      ...options,
+      filters: {
+        ...DEFAULT_PRODUCT_FILTERS,
+        ...partialFilters,
+      },
+    });
+  }
+
   async function loadDashboard() {
     const [productosData, alertasData, estadoData] = await Promise.all([
       api("/api/productos"),
@@ -1344,7 +1392,11 @@ export default function App() {
               key={item.id}
               className={`nav-item ${activeView === item.id ? "nav-item--active" : ""}`}
               onClick={() => {
-                navigateToView(item.id);
+                if (item.id === "productos") {
+                  navigateToProductosWithFilters();
+                } else {
+                  navigateToView(item.id);
+                }
                 setSidebarOpen(false);
               }}
               type="button"
@@ -1426,6 +1478,9 @@ export default function App() {
                 recheckingProductId={recheckingProductId}
                 handleMarkAlertaLeida={handleMarkAlertaLeida}
                 goToProductos={() => navigateToView("productos")}
+                goToPrioritarios={() => navigateToProductosWithFilters({ prioridad: "prioritarios" })}
+                goToDelayed={() => navigateToProductosWithFilters({ estado: "atrasado" })}
+                goToReviewSoon={() => navigateToProductosWithFilters({ estado: "por revisar" })}
                 goToAlertas={() => navigateToView("alertas")}
               />
             )}
@@ -1445,6 +1500,7 @@ export default function App() {
                 handleDeleteProducto={handleDeleteProducto}
                 priorityNotice={priorityNotice}
                 goToDashboard={() => navigateToView("dashboard")}
+                clearFilters={() => navigateToProductosWithFilters()}
               />
             )}
             {activeView === "alertas" && (
