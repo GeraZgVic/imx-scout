@@ -1633,9 +1633,9 @@ input {
 }
 
 /* ─────────────────────────────────────────────
-   RESPONSIVE — 1280px (hide drawer column)
+   RESPONSIVE — 1480px (hide drawer column earlier)
 ───────────────────────────────────────────── */
-@media (max-width: 1280px) {
+@media (max-width: 1480px) {
   .shell {
     grid-template-columns: 220px 1fr;
   }
