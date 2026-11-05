@@ -64,7 +64,7 @@ async function setDeliveryLocationAndExtract(page) {
     const verDetallesBtn = await page.$(".ux-labels-values--shipping button.ux-action");
     if (!verDetallesBtn) {
       logger.warn("[eBay] Botón 'Ver detalles' no encontrado.");
-      return { envio: null, tiempo_entrega: null, destino_consultado: DELIVERY_DESTINATION };
+      return { envio: null, tiempo_entrega: null, destino_consultado: null };
     }
     await verDetallesBtn.click();
 
@@ -83,15 +83,16 @@ async function setDeliveryLocationAndExtract(page) {
       if (btn) btn.click();
     });
 
-    // Esperar activamente a que el bloque de entrega tenga contenido
+    // Esperar a que la respuesta confirme el ZIP solicitado, no solo texto previo.
     await page.waitForFunction(
-      () => {
+      (zip) => {
         const el = document.querySelector(".ux-labels-values--deliveryto .ux-labels-values__values-content");
-        return el && el.innerText?.trim().length > 5;
+        return el && new RegExp(`\\b${zip}\\b`).test(el.innerText || "");
       },
+      DELIVERY_ZIP,
       { timeout: 10_000 }
     ).catch(() => {
-      // Si no aparece en 10s, continuar con lo que haya
+      // Se valida de nuevo el contenido debajo antes de usarlo.
     });
 
     const lines = await page.evaluate(() => {
@@ -103,19 +104,25 @@ async function setDeliveryLocationAndExtract(page) {
         .filter(l => l.length > 0);
     });
 
-    // lines[0]: "Free 2-4 day delivery"
-    // lines[1]: "Standard Shipping"
-    // lines[2]: "Obtenlo entre el mié. 11 mar. y el vie. 13 mar. a 78041"
-    const envio          = lines.length > 0 ? lines.slice(0, 2).join(" — ") : null;
+    const zipPattern = new RegExp(`\\b${DELIVERY_ZIP}\\b`);
+    const destinationConfirmed = lines.some((line) => zipPattern.test(line));
+
+    if (!destinationConfirmed) {
+      logger.warn(`[eBay] La respuesta no confirmó el ZIP ${DELIVERY_ZIP}.`);
+      return { envio: null, tiempo_entrega: null, destino_consultado: null };
+    }
+
+    // lines[0]: tipo de envío; lines[1]: servicio; lines[2]: ventana de entrega.
+    const envio = lines.length > 0 ? lines.slice(0, 2).join(" — ") : null;
     const tiempo_entrega = lines[2] ?? null;
     const destino_consultado = DELIVERY_DESTINATION;
 
-    logger.info(`[eBay] Ubicación configurada: ZIP ${DELIVERY_ZIP} (Laredo, TX)`);
+    logger.info(`[eBay] Ubicación confirmada: ZIP ${DELIVERY_ZIP} (Laredo, TX)`);
     return { envio, tiempo_entrega, destino_consultado };
 
   } catch (err) {
     logger.warn(`[eBay] No se pudo configurar la ubicación: ${err.message}`);
-    return { envio: null, tiempo_entrega: null, destino_consultado: DELIVERY_DESTINATION };
+    return { envio: null, tiempo_entrega: null, destino_consultado: null };
   }
 }
 

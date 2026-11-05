@@ -73,14 +73,14 @@ const SELECTORS = {
  * @param {string[]} selectors
  * @returns {Promise<string|null>}
  */
-async function extractFirst(page, selectors) {
+async function extractFirst(page, selectors, transformText = (text) => text) {
   for (const selector of selectors) {
     try {
       const element = await page.$(selector);
       if (!element) continue;
 
       const text = await element.innerText();
-      const clean = text.trim().replace(/\s+/g, " ");
+      const clean = transformText(text.trim().replace(/\s+/g, " "));
 
       if (clean.length > 0) return clean;
     } catch {
@@ -92,14 +92,20 @@ async function extractFirst(page, selectors) {
   return null;
 }
 
+function stripInlineScriptTail(value) {
+  const scriptStart = value.search(/\s*\(\s*function\s*\(/i);
+  return (scriptStart === -1 ? value : value.slice(0, scriptStart)).trim();
+}
+
 async function extractLocationText(page) {
   return extractFirst(page, SELECTORS.ubicacion_entrega);
 }
 
 async function isDeliveryZipApplied(page) {
   const locationText = await extractLocationText(page);
+  const zipPattern = new RegExp(`\\b${DELIVERY_ZIP}\\b`);
   return {
-    applied: typeof locationText === "string" && locationText.includes(DELIVERY_ZIP),
+    applied: typeof locationText === "string" && zipPattern.test(locationText),
     locationText,
   };
 }
@@ -198,10 +204,14 @@ async function setDeliveryZip(page) {
 async function scrapeAmazon(page, url) {
   logger.info(`[Amazon] Cargando: ${url}`);
 
-  await page.goto(url, {
+  const response = await page.goto(url, {
     waitUntil: "domcontentloaded",
     timeout: 30_000,
   });
+
+  if (response && response.status() >= 400) {
+    throw new Error(`Amazon respondió HTTP ${response.status()} al cargar el producto.`);
+  }
 
   // Esperar a que el título del producto esté presente antes de continuar.
   // Si no aparece en 10s, se continúa igualmente (el campo quedará null).
@@ -215,17 +225,20 @@ async function scrapeAmazon(page, url) {
   // Esto garantiza que precio, envío y tiempos de entrega reflejen la disponibilidad
   // real hacia la dirección de la paquetería del equipo, no hacia México.
   const deliveryLocation = await setDeliveryZip(page);
+  const destinationConfirmed = deliveryLocation.applied;
 
   const nombre         = await extractFirst(page, SELECTORS.nombre);
   const precio         = await extractFirst(page, SELECTORS.precio);
-  const envio          = await extractFirst(page, SELECTORS.envio);
-  const tiempo_entrega = await extractFirst(page, SELECTORS.tiempo_entrega);
+  const envio          = destinationConfirmed ? await extractFirst(page, SELECTORS.envio) : null;
+  const tiempo_entrega = destinationConfirmed
+    ? await extractFirst(page, SELECTORS.tiempo_entrega, stripInlineScriptTail)
+    : null;
 
   logger.info(`[Amazon] nombre:         ${nombre         ?? "null"}`);
   logger.info(`[Amazon] precio:         ${precio         ?? "null"}`);
   logger.info(`[Amazon] envio:          ${envio          ?? "null"}`);
   logger.info(`[Amazon] tiempo_entrega: ${tiempo_entrega ?? "null"}`);
-  const destino_consultado = deliveryLocation.locationText ?? null;
+  const destino_consultado = destinationConfirmed ? deliveryLocation.locationText : null;
 
   logger.info(
     {
@@ -238,4 +251,4 @@ async function scrapeAmazon(page, url) {
   return { nombre, precio, envio, tiempo_entrega, destino_consultado };
 }
 
-module.exports = { scrapeAmazon };
+module.exports = { scrapeAmazon, stripInlineScriptTail };

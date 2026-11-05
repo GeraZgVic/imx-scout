@@ -8,7 +8,7 @@ const prisma = require("../../lib/prisma");
 const { ejecutarScraping, getEstado } = require("../../services/scraperService");
 
 // GET /api/scraping/estado
-// Devuelve si hay un scraping en curso y cuántas URLs se han procesado
+// Devuelve el progreso activo o el último resumen de una corrida terminada.
 router.get("/estado", (_req, res) => {
   res.json(getEstado());
 });
@@ -52,7 +52,7 @@ router.post("/prioritarios", async (_req, res, next) => {
       return res.status(400).json({ error: "No hay productos prioritarios para consultar." });
     }
 
-    const resultado = await ejecutarScraping(entries);
+    const resultado = await ejecutarScraping(entries, { allowBatching: true });
     return res.json(resultado);
   } catch (err) {
     if (

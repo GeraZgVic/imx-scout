@@ -18,7 +18,10 @@ const pLimit         = require("p-limit");
 
 const logger           = require("../utils/logger");
 const prisma           = require("../lib/prisma");
-const { processUrls }  = require("../processors/urlProcessor");
+const {
+  processUrls,
+  MAX_PRODUCT_URL_LENGTH,
+} = require("../processors/urlProcessor");
 const { scrapeAmazon } = require("../scrapers/amazonScraper");
 const { scrapeEbay }   = require("../scrapers/ebayScraper");
 const { buildSuccess, buildError } = require("../parsers/dataParser");
@@ -146,9 +149,11 @@ async function guardarRegistro(productoId, resultado) {
  * @returns {Promise<object>} Resultado normalizado (buildSuccess o buildError)
  */
 async function procesarUrl(browser, target) {
-  const page = await browser.newPage();
+  let page;
+  let fallo = false;
 
   try {
+    page = await browser.newPage();
     const scraper = SCRAPERS[target.platform];
 
     // Promise.race: el scraper compite contra el timeout
@@ -168,10 +173,10 @@ async function procesarUrl(browser, target) {
       "scrape_success"
     );
 
-    estadoActual.procesados++;
     return { resultado, productoId: producto.id, registroId: registro.id };
 
   } catch (err) {
+    fallo = true;
     const resultado = buildError(target.url, target.platform, err.message);
 
     // Intentar persistir el error también (puede fallar si la URL nunca existió)
@@ -183,11 +188,12 @@ async function procesarUrl(browser, target) {
     }
 
     logger.error({ url: target.url, err: err.message }, "scrape_error");
-    estadoActual.errores++;
     return { resultado, productoId: null, registroId: null };
 
   } finally {
-    await page.close().catch(() => {});
+    if (page) await page.close().catch(() => {});
+    estadoActual.procesados++;
+    if (fallo) estadoActual.errores++;
   }
 }
 
@@ -202,7 +208,7 @@ async function procesarUrl(browser, target) {
  * @returns {Promise<{ total: number, exitosos: number, errores: number, resultados: object[] }>}
  * @throws {Error} Si ya hay un scraping en curso o las entradas son inválidas
  */
-async function ejecutarScraping(entries) {
+async function ejecutarScraping(entries, { allowBatching = false } = {}) {
 
   // Validaciones previas
   if (estadoActual.activo) {
@@ -213,8 +219,12 @@ async function ejecutarScraping(entries) {
     throw new Error("Se requiere una lista de entradas no vacía.");
   }
 
-  if (entries.length > MAX_URLS_PER_REQUEST) {
+  if (!allowBatching && entries.length > MAX_URLS_PER_REQUEST) {
     throw new Error(`Máximo ${MAX_URLS_PER_REQUEST} entradas por ejecución.`);
+  }
+
+  if (entries.some((entry) => typeof entry === "string" && entry.length > MAX_PRODUCT_URL_LENGTH)) {
+    throw new Error(`Máximo ${MAX_PRODUCT_URL_LENGTH} caracteres por URL.`);
   }
 
   const targets = processUrls(entries);
@@ -234,15 +244,16 @@ async function ejecutarScraping(entries) {
 
   logger.info({ total: targets.length }, "scraping_iniciado");
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--disable-blink-features=AutomationControlled"],
-  });
-
   const resultados       = [];
   const productoIds      = [];
+  let browser;
 
   try {
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--disable-blink-features=AutomationControlled"],
+    });
+
     // Configurar contexto anti-bot (igual que v1)
     const context = await browser.newContext({
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -261,31 +272,40 @@ async function ejecutarScraping(entries) {
     };
 
     const limit = pLimit(MAX_CONCURRENT_SCRAPERS);
+    const batchSize = Math.max(1, Math.floor(MAX_URLS_PER_REQUEST) || 1);
 
-    const promesas = targets.map((target) =>
-      limit(() => procesarUrl(browserConContexto, target))
-    );
+    for (let offset = 0; offset < targets.length; offset += batchSize) {
+      const batch = targets.slice(offset, offset + batchSize);
+      const respuestas = await Promise.all(
+        batch.map((target) => limit(() => procesarUrl(browserConContexto, target)))
+      );
 
-    const respuestas = await Promise.all(promesas);
-
-    for (const { resultado, productoId } of respuestas) {
-      resultados.push(resultado);
-      if (productoId) productoIds.push(productoId);
+      for (const { resultado, productoId } of respuestas) {
+        resultados.push(resultado);
+        if (productoId) productoIds.push(productoId);
+      }
     }
 
     await context.close();
 
   } finally {
     // Garantiza cierre del navegador aunque ocurra error inesperado
-    await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
 
-    estadoActual = {
-      activo:     false,
-      inicio:     null,
-      total:      0,
-      procesados: 0,
-      errores:    0,
-    };
+    const huboIntentos = estadoActual.procesados > 0;
+    estadoActual = huboIntentos
+      ? {
+          ...estadoActual,
+          activo: false,
+          inicio: null,
+        }
+      : {
+          activo: false,
+          inicio: null,
+          total: 0,
+          procesados: 0,
+          errores: 0,
+        };
   }
 
   // Detectar cambios y generar alertas (fuera del try/finally del browser)

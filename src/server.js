@@ -11,7 +11,7 @@
 
 const path    = require("path");
 const express = require("express");
-const cors    = require("cors");
+const basicAuth = require("./middleware/basicAuth");
 const logger  = require("./utils/logger");
 
 const productosRoutes = require("./api/routes/productos");
@@ -22,9 +22,6 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-
-app.use(cors());
-app.use(express.json());
 
 // Request logging
 app.use((req, _res, next) => {
@@ -37,6 +34,13 @@ app.use((req, _res, next) => {
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ ok: true });
 });
+
+// Production routes and static assets require credentials. Keep healthchecks public.
+if (process.env.NODE_ENV === "production") {
+  app.use(basicAuth(process.env.IMXSCOUT_AUTH_USER, process.env.IMXSCOUT_AUTH_PASSWORD));
+}
+
+app.use(express.json());
 
 app.use("/api/productos", productosRoutes);
 app.use("/api/scraping",  scrapingRoutes);

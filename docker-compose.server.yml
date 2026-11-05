@@ -11,12 +11,16 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: mysql://imx:${IMXSCOUT_DB_PASSWORD}@imxscout-db:3306/imxscout
+      IMXSCOUT_DB_PASSWORD: ${IMXSCOUT_DB_PASSWORD:?Set IMXSCOUT_DB_PASSWORD in .env.server}
+      IMXSCOUT_AUTH_USER: ${IMXSCOUT_AUTH_USER:?Set IMXSCOUT_AUTH_USER in .env.server}
+      IMXSCOUT_AUTH_PASSWORD: ${IMXSCOUT_AUTH_PASSWORD:?Set IMXSCOUT_AUTH_PASSWORD in .env.server}
       LOG_LEVEL: info
       MAX_CONCURRENT_SCRAPERS: ${MAX_CONCURRENT_SCRAPERS:-2}
       MAX_URLS_PER_REQUEST: ${MAX_URLS_PER_REQUEST:-50}
       SCRAPER_TIMEOUT_MS: ${SCRAPER_TIMEOUT_MS:-30000}
       TZ: ${TZ:-UTC}
+    security_opt:
+      - seccomp=./seccomp_profile.json
     networks:
       - cscart_production_net
       - imxscout_internal

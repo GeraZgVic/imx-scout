@@ -77,6 +77,10 @@ function normalizeDeliveryWindow(value) {
     .trim();
 }
 
+function hasConfirmedDeliveryDestination(value) {
+  return typeof value === "string" && /\b78041\b/.test(value);
+}
+
 // ─── Comparador principal ─────────────────────────────────────────────────────
 
 /**
@@ -100,16 +104,21 @@ async function compararYAlertar(productoId, actual, anterior) {
     );
   }
 
-  const tiempoActual = normalizeDeliveryWindow(actual.tiempo_entrega);
-  const tiempoAnterior = normalizeDeliveryWindow(anterior.tiempo_entrega);
+  if (
+    hasConfirmedDeliveryDestination(actual.destino_consultado) &&
+    hasConfirmedDeliveryDestination(anterior.destino_consultado)
+  ) {
+    const tiempoActual = normalizeDeliveryWindow(actual.tiempo_entrega);
+    const tiempoAnterior = normalizeDeliveryWindow(anterior.tiempo_entrega);
 
-  if (tiempoActual !== null && tiempoAnterior !== null && tiempoActual !== tiempoAnterior) {
-    await crearAlerta(
-      productoId,
-      "tiempo_entrega_cambio",
-      anterior.tiempo_entrega,
-      actual.tiempo_entrega
-    );
+    if (tiempoActual !== null && tiempoAnterior !== null && tiempoActual !== tiempoAnterior) {
+      await crearAlerta(
+        productoId,
+        "tiempo_entrega_cambio",
+        anterior.tiempo_entrega,
+        actual.tiempo_entrega
+      );
+    }
   }
 }
 
@@ -122,9 +131,10 @@ async function compararYAlertar(productoId, actual, anterior) {
  * @param {number[]} productoIds - IDs de productos procesados en el scraping
  */
 async function detectarYCrearAlertas(productoIds) {
-  logger.info({ total: productoIds.length }, "alertas_verificando");
+  const productoIdsUnicos = [...new Set(productoIds)];
+  logger.info({ total: productoIdsUnicos.length }, "alertas_verificando");
 
-  for (const productoId of productoIds) {
+  for (const productoId of productoIdsUnicos) {
     try {
       const registros = await obtenerUltimosRegistros(productoId);
 
@@ -140,7 +150,7 @@ async function detectarYCrearAlertas(productoIds) {
     }
   }
 
-  logger.info({ total: productoIds.length }, "alertas_verificacion_completa");
+  logger.info({ total: productoIdsUnicos.length }, "alertas_verificacion_completa");
 }
 
 module.exports = { detectarYCrearAlertas };

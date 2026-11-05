@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "src/client/src/styles.css"
+        ],
+        "createdAt": "2026-11-04T22:33:04.238Z",
+        "reason": "Existing intentional gradient treatment on primary page headings; preserves the established visual hierarchy."
+      },
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-11-05T18:03:41.492Z",
+        "reason": "User confirmed Plus Jakarta Sans is intentional"
+      }
+    ]
+  }
+}

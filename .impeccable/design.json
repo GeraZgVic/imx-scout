@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-05T22:05:33Z",
+  "title": "Design System: IMX Scout",
+  "extensions": {
+    "colorMeta": {
+      "ground": { "role": "neutral", "displayName": "Graphite Ground", "canonical": "#0b0e11", "tonalRamp": ["oklch(15% 0.002 248.3)", "oklch(25% 0.004 248.3)", "oklch(35% 0.007 248.3)", "oklch(45% 0.008 248.3)", "oklch(55% 0.008 248.3)", "oklch(65% 0.007 248.3)", "oklch(75% 0.005 248.3)", "oklch(95% 0.002 248.3)"] },
+      "rail": { "role": "neutral", "displayName": "Graphite Rail", "canonical": "#0e1216", "tonalRamp": ["oklch(15% 0.002 248.4)", "oklch(25% 0.006 248.4)", "oklch(35% 0.009 248.4)", "oklch(45% 0.010 248.4)", "oklch(55% 0.010 248.4)", "oklch(65% 0.009 248.4)", "oklch(75% 0.006 248.4)", "oklch(95% 0.002 248.4)"] },
+      "surface": { "role": "neutral", "displayName": "Graphite Surface", "canonical": "#12171b", "tonalRamp": ["oklch(15% 0.002 242.3)", "oklch(25% 0.006 242.3)", "oklch(35% 0.009 242.3)", "oklch(45% 0.011 242.3)", "oklch(55% 0.011 242.3)", "oklch(65% 0.010 242.3)", "oklch(75% 0.006 242.3)", "oklch(95% 0.002 242.3)"] },
+      "surface-raised": { "role": "neutral", "displayName": "Raised Graphite", "canonical": "#181e23", "tonalRamp": ["oklch(15% 0.003 243.5)", "oklch(25% 0.007 243.5)", "oklch(35% 0.011 243.5)", "oklch(45% 0.013 243.5)", "oklch(55% 0.013 243.5)", "oklch(65% 0.012 243.5)", "oklch(75% 0.008 243.5)", "oklch(95% 0.003 243.5)"] },
+      "surface-hover": { "role": "neutral", "displayName": "Hover Graphite", "canonical": "#20272d", "tonalRamp": ["oklch(15% 0.003 244.2)", "oklch(25% 0.008 244.2)", "oklch(35% 0.012 244.2)", "oklch(45% 0.015 244.2)", "oklch(55% 0.015 244.2)", "oklch(65% 0.013 244.2)", "oklch(75% 0.009 244.2)", "oklch(95% 0.003 244.2)"] },
+      "line": { "role": "neutral", "displayName": "Cool Silver Line", "canonical": "#303940", "tonalRamp": ["oklch(15% 0.004 241.5)", "oklch(25% 0.010 241.5)", "oklch(35% 0.014 241.5)", "oklch(45% 0.017 241.5)", "oklch(55% 0.017 241.5)", "oklch(65% 0.015 241.5)", "oklch(75% 0.010 241.5)", "oklch(95% 0.004 241.5)"] },
+      "line-soft": { "role": "neutral", "displayName": "Soft Silver Divider", "canonical": "#252d33", "tonalRamp": ["oklch(15% 0.003 240.5)", "oklch(25% 0.009 240.5)", "oklch(35% 0.013 240.5)", "oklch(45% 0.016 240.5)", "oklch(55% 0.016 240.5)", "oklch(65% 0.014 240.5)", "oklch(75% 0.009 240.5)", "oklch(95% 0.003 240.5)"] },
+      "ink": { "role": "neutral", "displayName": "Frosted Silver Ink", "canonical": "#f1f3f4", "tonalRamp": ["oklch(15% 0.001 228.8)", "oklch(25% 0.001 228.8)", "oklch(35% 0.002 228.8)", "oklch(45% 0.003 228.8)", "oklch(55% 0.003 228.8)", "oklch(65% 0.002 228.8)", "oklch(75% 0.001 228.8)", "oklch(95% 0.001 228.8)"] },
+      "ink-soft": { "role": "neutral", "displayName": "Soft Silver Ink", "canonical": "#c0c7cc", "tonalRamp": ["oklch(15% 0.002 238.5)", "oklch(25% 0.006 238.5)", "oklch(35% 0.009 238.5)", "oklch(45% 0.010 238.5)", "oklch(55% 0.010 238.5)", "oklch(65% 0.009 238.5)", "oklch(75% 0.006 238.5)", "oklch(95% 0.002 238.5)"] },
+      "ink-muted": { "role": "neutral", "displayName": "Muted Silver Ink", "canonical": "#9aa4ab", "tonalRamp": ["oklch(15% 0.003 238.1)", "oklch(25% 0.008 238.1)", "oklch(35% 0.013 238.1)", "oklch(45% 0.015 238.1)", "oklch(55% 0.015 238.1)", "oklch(65% 0.013 238.1)", "oklch(75% 0.009 238.1)", "oklch(95% 0.003 238.1)"] },
+      "ink-dim": { "role": "neutral", "displayName": "Dim Silver Ink", "canonical": "#78848c", "tonalRamp": ["oklch(15% 0.004 236.9)", "oklch(25% 0.010 236.9)", "oklch(35% 0.015 236.9)", "oklch(45% 0.019 236.9)", "oklch(55% 0.019 236.9)", "oklch(65% 0.016 236.9)", "oklch(75% 0.011 236.9)", "oklch(95% 0.004 236.9)"] },
+      "signal": { "role": "primary", "displayName": "Signal Yellow", "canonical": "#ffd400", "tonalRamp": ["oklch(15% 0.040 94.0)", "oklch(25% 0.099 94.0)", "oklch(35% 0.148 94.0)", "oklch(45% 0.181 94.0)", "oklch(55% 0.181 94.0)", "oklch(65% 0.159 94.0)", "oklch(75% 0.105 94.0)", "oklch(95% 0.040 94.0)"] },
+      "signal-ink": { "role": "neutral", "displayName": "Signal Ink", "canonical": "#242008", "tonalRamp": ["oklch(15% 0.009 100.0)", "oklch(25% 0.021 100.0)", "oklch(35% 0.032 100.0)", "oklch(45% 0.039 100.0)", "oklch(55% 0.039 100.0)", "oklch(65% 0.034 100.0)", "oklch(75% 0.023 100.0)", "oklch(95% 0.009 100.0)"] },
+      "signal-wash": { "role": "primary", "displayName": "Signal Wash", "canonical": "#24210f", "tonalRamp": ["oklch(15% 0.007 100.0)", "oklch(25% 0.017 100.0)", "oklch(35% 0.025 100.0)", "oklch(45% 0.031 100.0)", "oklch(55% 0.031 100.0)", "oklch(65% 0.027 100.0)", "oklch(75% 0.018 100.0)", "oklch(95% 0.007 100.0)"] },
+      "error": { "role": "error", "displayName": "Failure Coral", "canonical": "#ff8278", "tonalRamp": ["oklch(15% 0.034 26.1)", "oklch(25% 0.085 26.1)", "oklch(35% 0.126 26.1)", "oklch(45% 0.154 26.1)", "oklch(55% 0.154 26.1)", "oklch(65% 0.135 26.1)", "oklch(75% 0.089 26.1)", "oklch(95% 0.034 26.1)"] },
+      "error-wash": { "role": "error", "displayName": "Failure Wash", "canonical": "#2a1717", "tonalRamp": ["oklch(15% 0.007 19.7)", "oklch(25% 0.017 19.7)", "oklch(35% 0.025 19.7)", "oklch(45% 0.031 19.7)", "oklch(55% 0.031 19.7)", "oklch(65% 0.027 19.7)", "oklch(75% 0.018 19.7)", "oklch(95% 0.007 19.7)"] },
+      "success": { "role": "success", "displayName": "Muted Success Green", "canonical": "#9ad3a3", "tonalRamp": ["oklch(15% 0.020 148.9)", "oklch(25% 0.049 148.9)", "oklch(35% 0.073 148.9)", "oklch(45% 0.089 148.9)", "oklch(55% 0.089 148.9)", "oklch(65% 0.078 148.9)", "oklch(75% 0.052 148.9)", "oklch(95% 0.020 148.9)"] },
+      "success-wash": { "role": "success", "displayName": "Success Wash", "canonical": "#15241a", "tonalRamp": ["oklch(15% 0.006 154.6)", "oklch(25% 0.015 154.6)", "oklch(35% 0.023 154.6)", "oklch(45% 0.028 154.6)", "oklch(55% 0.028 154.6)", "oklch(65% 0.025 154.6)", "oklch(75% 0.016 154.6)", "oklch(95% 0.006 154.6)"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "View headline", "purpose": "Primary view heading, responsive from 25px to 32px." },
+      "title": { "displayName": "Panel title", "purpose": "Dialog and history headings." },
+      "body": { "displayName": "Supporting body", "purpose": "View descriptions and readable supporting copy." },
+      "button": { "displayName": "Action label", "purpose": "Primary and secondary action text." },
+      "label": { "displayName": "Compact label", "purpose": "Table headers and compact metadata." }
+    },
+    "shadows": [
+      { "name": "dialog", "value": "0 22px 70px rgba(0, 0, 0, .48)", "purpose": "Separates the registration dialog and history drawer from the page." },
+      { "name": "mobile-navigation", "value": "15px 0 40px rgba(0, 0, 0, .28)", "purpose": "Gives the slide-in navigation drawer directional separation." }
+    ],
+    "motion": [
+      { "name": "control-state", "value": ".16s ease", "purpose": "Transitions button and navigation color, border, background, and press states." },
+      { "name": "history-drawer-in", "value": ".2s cubic-bezier(.2, .8, .2, 1)", "purpose": "Introduces the history panel from the right." },
+      { "name": "loading-spinner", "value": ".7s linear", "purpose": "Rotates the visible catalog loading indicator." },
+      { "name": "reduced-motion", "value": "prefers-reduced-motion: reduce", "purpose": "Reduces animations, transitions, and smooth scrolling to near-instant movement." }
+    ],
+    "breakpoints": [
+      { "name": "wide-layout-adjustment", "value": "1250px" },
+      { "name": "navigation-drawer", "value": "940px" },
+      { "name": "row-card-mobile", "value": "680px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "High-priority action for registering or submitting a product.",
+      "html": "<button class='ds-button-primary' type='button'>Registrar producto</button>",
+      "css": ".ds-button-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 39px; padding: 0 13px; color: var(--signal-ink); background: var(--signal); border: 1px solid var(--signal); border-radius: var(--radius-small); font: 700 12px 'Plus Jakarta Sans', sans-serif; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease; } .ds-button-primary:hover:not(:disabled) { background: #ffe044; border-color: #ffe044; } .ds-button-primary:active:not(:disabled) { transform: translateY(1px); } .ds-button-primary:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; } .ds-button-primary:disabled { cursor: not-allowed; opacity: .55; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Lower-emphasis action for navigation, cancellation, and supporting tasks.",
+      "html": "<button class='ds-button-secondary' type='button'>Ver catálogo</button>",
+      "css": ".ds-button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 39px; padding: 0 13px; color: var(--ink-soft); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-small); font: 700 12px 'Plus Jakarta Sans', sans-serif; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease; } .ds-button-secondary:hover:not(:disabled) { color: var(--ink); background: var(--surface-hover); } .ds-button-secondary:active:not(:disabled) { transform: translateY(1px); } .ds-button-secondary:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; } .ds-button-secondary:disabled { cursor: not-allowed; opacity: .55; }"
+    },
+    {
+      "name": "Catalog Search",
+      "kind": "input",
+      "description": "Searches product names, ASINs, or URLs within the catalog.",
+      "html": "<label class='ds-search'><svg aria-hidden='true' viewBox='0 0 24 24'><circle cx='10.8' cy='10.8' r='6.3' fill='none' stroke='currentColor' stroke-width='1.8'/><path d='m15.5 15.5 4.2 4.2' fill='none' stroke='currentColor' stroke-width='1.8'/></svg><input type='search' placeholder='Nombre, ASIN o URL' aria-label='Buscar productos'></label>",
+      "css": ".ds-search { display: flex; align-items: center; gap: 9px; min-width: 170px; height: 37px; padding: 0 10px; color: var(--ink-muted); background: #0e1215; border: 1px solid #333d44; border-radius: var(--radius-small); } .ds-search:focus-within { border-color: #7a6b1c; box-shadow: 0 0 0 2px rgba(255, 212, 0, .08); } .ds-search svg { width: 16px; height: 16px; flex: 0 0 auto; } .ds-search input { width: 100%; min-width: 0; color: var(--ink); background: transparent; border: 0; outline: 0; font: 400 11px 'Plus Jakarta Sans', sans-serif; } .ds-search input::placeholder { color: var(--ink-dim); opacity: 1; }"
+    },
+    {
+      "name": "Registration Field",
+      "kind": "input",
+      "description": "Accepts an Amazon ASIN or a supported marketplace URL.",
+      "html": "<label class='ds-field'><span>ASIN o URL</span><input type='text' placeholder='B0DSVVJXK5 o https://…'></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 8px; color: var(--ink-soft); font: 700 10px 'Plus Jakarta Sans', sans-serif; } .ds-field input { width: 100%; height: 43px; padding: 0 11px; color: var(--ink); background: #0c1013; border: 1px solid #48535a; border-radius: var(--radius-small); font: 400 12px 'Plus Jakarta Sans', sans-serif; } .ds-field input::placeholder { color: var(--ink-dim); opacity: 1; } .ds-field input:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }"
+    },
+    {
+      "name": "Active Navigation Item",
+      "kind": "nav",
+      "description": "Marks the current workspace destination with a selected surface and narrow accent edge.",
+      "html": "<button class='ds-nav-item' type='button' aria-current='page'><svg class='ds-nav-icon' aria-hidden='true' viewBox='0 0 24 24'><rect x='4' y='4' width='6' height='6' rx='1' fill='none' stroke='currentColor' stroke-width='1.8'/><rect x='14' y='4' width='6' height='6' rx='1' fill='none' stroke='currentColor' stroke-width='1.8'/><rect x='4' y='14' width='6' height='6' rx='1' fill='none' stroke='currentColor' stroke-width='1.8'/><rect x='14' y='14' width='6' height='6' rx='1' fill='none' stroke='currentColor' stroke-width='1.8'/></svg><span>Productos</span></button>",
+      "css": ".ds-nav-item { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 43px; padding: 0 10px; color: var(--ink); background: #1b2227; border: 1px solid #323b41; border-radius: var(--radius-small); text-align: left; font: 600 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer; } .ds-nav-item::after { position: absolute; top: 9px; right: -1px; bottom: 9px; width: 2px; content: ''; background: var(--signal); } .ds-nav-item:hover { background: #20272d; } .ds-nav-item:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; } .ds-nav-icon { width: 18px; height: 18px; flex: 0 0 auto; color: var(--ink-soft); }"
+    },
+    {
+      "name": "Query Status Badge",
+      "kind": "chip",
+      "description": "Pairs a compact icon marker and text label with query state.",
+      "html": "<span class='ds-status-badge'><svg class='ds-status-icon' aria-hidden='true' viewBox='0 0 24 24'><circle cx='12' cy='12' r='9' fill='none' stroke='currentColor' stroke-width='2'/><path d='M12 7v6m0 4h.01' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>Error</span>",
+      "css": ".ds-status-badge { display: inline-flex; align-items: center; gap: 5px; min-height: 23px; padding: 2px 7px; color: #ffaaa3; background: var(--error-wash); border: 1px solid #623533; border-radius: 4px; font: 700 9px/1.15 'Plus Jakarta Sans', sans-serif; white-space: nowrap; } .ds-status-icon { width: 12px; height: 12px; flex: 0 0 auto; }"
+    },
+    {
+      "name": "Catalog Surface",
+      "kind": "card",
+      "refersTo": "catalog-surface",
+      "description": "Frames the filter row and product table as one working surface.",
+      "html": "<section class='ds-catalog'><strong>Catálogo de productos</strong></section>",
+      "css": ".ds-catalog { overflow: hidden; padding: 16px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font: 700 12px 'Plus Jakarta Sans', sans-serif; }"
+    },
+    {
+      "name": "Changed Product Row",
+      "kind": "custom",
+      "description": "Keeps a new change signal attached to its product in both table and mobile row-card layouts.",
+      "html": "<table class='ds-product-table'><thead><tr><th>Producto</th><th>Último precio</th><th>Estado</th></tr></thead><tbody><tr class='ds-product-row ds-product-row--changed'><td data-label='Producto'>Producto de ejemplo</td><td data-label='Último precio'>—</td><td data-label='Estado'><span class='ds-change-badge'>Cambio nuevo</span></td></tr></tbody></table>",
+      "css": ".ds-product-table { width: 100%; border-collapse: collapse; } .ds-product-row { background: transparent; transition: background .17s ease; } .ds-product-row:hover { background: #171d21; } .ds-product-row--changed { background: #19180f; box-shadow: inset 0 1px #4d4519, inset 0 -1px #4d4519; } .ds-product-row--changed:hover { background: #201e11; } .ds-product-table td { padding: 13px 11px; color: var(--ink-soft); border-bottom: 1px solid var(--line-soft); font: 400 11px/1.45 'Plus Jakarta Sans', sans-serif; } .ds-change-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; color: var(--signal); background: #2a2610; border: 1px solid #5b4e14; border-radius: 4px; font: 700 9px 'Plus Jakarta Sans', sans-serif; } .ds-change-badge::before { width: 7px; height: 7px; content: ''; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 3px rgba(255, 212, 0, .1); } @media (max-width: 680px) { .ds-product-table { display: block; min-width: 0; } .ds-product-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); } .ds-product-table tbody { display: grid; gap: 9px; padding: 9px; } .ds-product-row, .ds-product-row--changed { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; padding: 12px 11px 9px; background: #151a1e; border: 1px solid #323b42; border-radius: 6px; box-shadow: none; } .ds-product-row--changed { background: #1a190f; border-color: #5a501a; box-shadow: inset 0 1px #75651c; } .ds-product-table td { display: grid; grid-template-columns: minmax(72px, .55fr) minmax(0, 1fr); gap: 8px; padding: 8px 0; border: 0; font-size: 10px; } .ds-product-table td::before { content: attr(data-label); color: var(--ink-dim); font-size: 8px; font-weight: 700; } .ds-product-table td[data-label='Producto'] { grid-column: 1 / -1; border-bottom: 1px solid var(--line-soft); } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Product Ledger",
+    "overview": "IMX Scout is an Operate interface for registering products and following their marketplace data. Its working language is graphite and cool silver, with Plus Jakarta Sans and compact, familiar web controls. The product catalog is the default view, and each product row holds the identity, latest valid result, latest query attempt, status, change signal, and related actions together.\n\nThe yellow signal marks unread changes and selected priority; red marks failed checks; muted green marks successful checks. Tabular numerals keep prices and times easy to compare. Surface contrast and fine borders organize the dense catalog, while the summary and alerts views support the same product-centered workflow.",
+    "keyCharacteristics": [
+      "Product-first catalog with stable, scannable data columns.",
+      "Graphite surfaces and cool-silver text and dividers.",
+      "Yellow unread-change signal, with red failure and muted-green success states.",
+      "Plus Jakarta Sans with tabular numerals for data values.",
+      "Standard web navigation, forms, filters, tables, dialogs, and drawers."
+    ],
+    "rules": [
+      { "name": "The Status-With-Text Rule", "body": "Every status uses a visible label or explanatory copy alongside its color treatment.", "section": "colors" },
+      { "name": "The Numeric-Alignment Rule", "body": "Prices, timestamps, and comparisons retain tabular numerals so changing values keep their columns visually steady.", "section": "typography" },
+      { "name": "The Product-Row Rule", "body": "Keep identity, latest valid data, latest query attempt, status, unread change, and next actions in the same product row at every viewport.", "section": "layout" },
+      { "name": "The Flat-At-Rest Rule", "body": "Panels and rows use tonal contrast and borders at rest; reserve shadows for overlays and active state cues.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep product identity, the latest valid values, the latest query attempt, status, unread change, and next actions together in its row.",
+      "Do label a retained value as the last valid data when the latest attempt failed.",
+      "Do pair yellow, red, and green status colors with readable text and the interface's icon or detail treatment.",
+      "Do use tabular numerals for prices, timestamps, and comparison values.",
+      "Do keep the product catalog as the first working view and preserve the standard navigation, filters, forms, tables, and responsive row cards.",
+      "Do preserve the IMX Scout name and Plus Jakarta Sans."
+    ],
+    "donts": [
+      "Don't imply that the last known value is the result of a failed or unavailable query.",
+      "Don't use color as the only explanation of a change, success, warning, or failure.",
+      "Don't turn the primary catalog into disconnected summary tiles; the product row is the unit that carries its result and state.",
+      "Don't introduce a different typeface or replace the graphite, cool-silver, and yellow signal palette with unrelated accents."
+    ]
+  }
+}

@@ -27,6 +27,15 @@
  * @returns {object}
  */
 function buildSuccess(url, plataforma, datos) {
+  const extractedFields = [datos?.nombre, datos?.precio, datos?.envio, datos?.tiempo_entrega];
+  const hasExtractedData = extractedFields.some(
+    (value) => typeof value === "string" && value.trim().length > 0
+  );
+
+  if (!hasExtractedData) {
+    throw new Error("No se extrajo información útil del producto.");
+  }
+
   return {
     url,
     plataforma,

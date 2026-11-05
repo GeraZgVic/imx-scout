@@ -24,6 +24,8 @@ enum ScrapingStatus {
 enum TipoAlerta {
   precio_cambio
   tiempo_entrega_cambio
+  // Kept for historical records; new alerts use tiempo_entrega_cambio.
+  disponibilidad_cambio
 }
 
 // ─── Modelos ──────────────────────────────────────────────────────────────────

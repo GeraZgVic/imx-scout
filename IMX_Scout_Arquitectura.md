@@ -541,7 +541,8 @@ Esta sección documenta las decisiones de diseño no obvias y el razonamiento de
 |---|---|---|---|
 | Concurrencia de scrapers | `p-limit` | Queue + Worker (BullMQ + Redis) | Para 20–50 URLs, p-limit resuelve el problema sin agregar Redis ni un contenedor extra. Queue entra en v3 si el volumen escala a 500+ productos. |
 | Precio en DB | `STRING` | `DECIMAL` | Amazon y eBay devuelven formatos inconsistentes. Guardar el texto original evita bugs de parsing. Se puede agregar `precio_normalizado DECIMAL` en una migración posterior. |
-| Autenticación en servidor | Traefik Basic Auth | JWT en código | Decisión reservada para la etapa de despliegue. En servidor, proteger a nivel de infraestructura sería más simple y consistente con otros sistemas internos. |
+| Autenticación en servidor | HTTP Basic Auth en Express detrás de HTTPS en Traefik | API y UI sin autenticación | Protege API y archivos estáticos también si el contenedor se alcanza fuera del router. Las credenciales se configuran por entorno y `/healthz` queda disponible para healthchecks. |
+| Acceso entre orígenes | Mismo origen | CORS abierto a cualquier origen | La UI se sirve desde Express en producción y Vite proxea la API durante el desarrollo; no se requieren permisos CORS amplios. |
 | Timeout por URL | `Promise.race()` 30s | Sin timeout | Amazon puede colgar indefinidamente. Sin timeout, un solo scraper puede bloquear toda la ejecución. |
 | Estado del scraping | Variable en memoria | Tabla `ScrapeJob` | Una sola instancia del contenedor hace suficiente una variable en memoria. `ScrapeJob` entra en v3 si se necesita persistencia entre reinicios. |
 | Logs | `pino` | `console.log` | Logs estructurados (JSON) permiten filtrar por `url`, `plataforma`, `duration` directamente en `docker logs`. |
@@ -586,7 +587,7 @@ Los mismos que v1, extendidos para v2:
 ### v2 servidor — Planeado, no cerrado todavía
 - Despliegue con Docker + Traefik
 - Operación con build estático servido por Express
-- Protección por infraestructura (por ejemplo Traefik Basic Auth)
+- Autenticación HTTP Basic en la aplicación y HTTPS terminado por Traefik
 - Separación de app y base de datos en contenedores
 
 ## Roadmap

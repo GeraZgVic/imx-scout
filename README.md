@@ -123,8 +123,11 @@ Flujo sugerido:
 2. Crea un archivo `.env.server` a partir de `.env.server.example`
 3. Ajusta:
    - `IMXSCOUT_HOST`
-   - `IMXSCOUT_DB_PASSWORD`
+   - `IMXSCOUT_DB_PASSWORD` (se usa para MySQL y Prisma; la app codifica la clave para la URL de conexión)
    - `IMXSCOUT_DB_ROOT_PASSWORD`
+   - `IMXSCOUT_AUTH_USER`
+   - `IMXSCOUT_AUTH_PASSWORD` (usa una contraseña larga y única)
+   - si una contraseña contiene `$`, escríbela entre comillas simples en `.env.server` para evitar la interpolación de Compose
 4. Levanta el stack:
 
 ```bash
@@ -141,6 +144,11 @@ docker compose --env-file .env.server -f docker-compose.server.yml logs -f imxsc
 Notas:
 
 - la app publica su tráfico por Traefik, no por puertos directos
+- Traefik termina HTTPS y la aplicación protege la UI y la API con autenticación HTTP Basic
+- `/healthz` queda sin autenticación para que Docker pueda ejecutar su healthcheck
+- la interfaz usa el mismo origen que la API; la aplicación no habilita CORS entre orígenes
+- el contenedor ejecuta la app como `pwuser`; `seccomp_profile.json` permite el sandbox de Chromium al visitar tiendas externas
+- `seccomp_profile.json` está basado en el [perfil oficial de Playwright 1.58.2](https://github.com/microsoft/playwright/blob/v1.58.2/utils/docker/seccomp_profile.json)
 - el contenedor app expone internamente el puerto `3000`
 - la base queda aislada en la red interna `imxscout_internal`
 - el servicio responde `GET /healthz` para healthchecks
@@ -265,6 +273,7 @@ Ejemplo de response:
 Errores esperados:
 
 - `400` si falta `url` y `asin`, o si la entrada no es válida
+- `400` si `url` supera los 512 caracteres permitidos para persistencia
 - `409` si la URL ya existe en la base
 
 ### PATCH /api/productos/:id
@@ -409,6 +418,8 @@ Ejemplo de response:
 }
 ```
 
+Mientras una corrida está activa, `procesados` cuenta cada intento terminado y `errores` muestra los fallidos. Al terminar, el endpoint conserva los contadores de la última corrida hasta que empiece otra.
+
 ### POST /api/scraping/ejecutar
 
 Ejecuta scraping para una lista de URLs o ASINs.
@@ -455,11 +466,13 @@ Errores esperados:
 - `400` si `entries` no existe o está vacío
 - `400` si ya hay un scraping en curso
 - `400` si se excede `MAX_URLS_PER_REQUEST`
+- `400` si una URL supera los 512 caracteres permitidos para persistencia
 - `500` si ocurre un error inesperado del servidor
 
 ### POST /api/scraping/prioritarios
 
 Ejecuta scraping sobre todos los productos marcados como prioritarios y activos.
+Los procesa en lotes de hasta `MAX_URLS_PER_REQUEST` entradas, dentro de una sola corrida.
 
 Ejemplo de request:
 
@@ -544,7 +557,7 @@ Explicación:
 - `LOG_LEVEL`: nivel del logger `pino`
 - `DATABASE_URL`: cadena de conexión MySQL usada por Prisma
 - `MAX_CONCURRENT_SCRAPERS`: número máximo de scrapers corriendo en paralelo
-- `MAX_URLS_PER_REQUEST`: límite de entradas por ejecución
+- `MAX_URLS_PER_REQUEST`: límite de entradas por ejecución manual y tamaño máximo de lote para la reconsulta prioritaria
 - `SCRAPER_TIMEOUT_MS`: timeout por URL en milisegundos
 
 ## Comandos Útiles

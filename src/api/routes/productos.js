@@ -1,7 +1,12 @@
 const express = require("express");
 
 const prisma = require("../../lib/prisma");
-const { buildAmazonUrl, detectPlatform, isAsin } = require("../../processors/urlProcessor");
+const {
+  buildAmazonUrl,
+  detectPlatform,
+  isAsin,
+  MAX_PRODUCT_URL_LENGTH,
+} = require("../../processors/urlProcessor");
 
 const router = express.Router();
 
@@ -23,6 +28,10 @@ function normalizeProductInput(body) {
       plataforma: "amazon",
       url: buildAmazonUrl(asinValue),
     };
+  }
+
+  if (urlValue.length > MAX_PRODUCT_URL_LENGTH) {
+    return { error: `La URL no puede superar ${MAX_PRODUCT_URL_LENGTH} caracteres.` };
   }
 
   const plataforma = detectPlatform(urlValue);
@@ -49,15 +58,45 @@ router.get("/", async (_req, res, next) => {
         registros: {
           orderBy: { timestamp: "desc" },
           take: 1,
-          select: { timestamp: true, status: true },
+          select: {
+            timestamp: true,
+            status: true,
+            error_mensaje: true,
+            precio: true,
+            envio: true,
+            tiempo_entrega: true,
+            destino_consultado: true,
+          },
         },
       },
     });
+
+    const productIds = productos.map((producto) => producto.id);
+    const latestSuccessfulRecords = productIds.length > 0
+      ? await prisma.registroPrecio.findMany({
+          where: { productoId: { in: productIds }, status: "ok" },
+          orderBy: { timestamp: "desc" },
+          distinct: ["productoId"],
+          select: {
+            id: true,
+            productoId: true,
+            precio: true,
+            envio: true,
+            tiempo_entrega: true,
+            destino_consultado: true,
+            timestamp: true,
+          },
+        })
+      : [];
+    const latestSuccessfulByProduct = new Map(
+      latestSuccessfulRecords.map((registro) => [registro.productoId, registro])
+    );
 
     return res.json({
       items: productos.map((producto) => ({
         ...producto,
         ultimoRegistro: producto.registros[0] || null,
+        ultimoDatoValido: latestSuccessfulByProduct.get(producto.id) || null,
         registros: undefined,
       })),
     });

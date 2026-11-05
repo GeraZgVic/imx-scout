@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.44.1-jammy
+FROM mcr.microsoft.com/playwright:v1.58.2-jammy
 
 WORKDIR /app
 
@@ -17,4 +17,6 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/server.js"]
+USER pwuser
+
+CMD ["sh", "./docker-entrypoint.sh"]

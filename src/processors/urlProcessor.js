@@ -33,6 +33,7 @@ const ALLOWED_DOMAINS = {
 // Patrón de ASIN: exactamente 10 caracteres alfanuméricos.
 // Los ASINs de Amazon siempre tienen este formato.
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/i;
+const MAX_PRODUCT_URL_LENGTH = 512;
 
 // URL base para construir enlaces de producto desde un ASIN
 const AMAZON_PRODUCT_URL = "https://www.amazon.com/dp/";
@@ -134,4 +135,10 @@ function processUrls(entries) {
   return results;
 }
 
-module.exports = { processUrls, detectPlatform, isAsin, buildAmazonUrl };
+module.exports = {
+  processUrls,
+  detectPlatform,
+  isAsin,
+  buildAmazonUrl,
+  MAX_PRODUCT_URL_LENGTH,
+};
